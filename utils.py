@@ -3,9 +3,7 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.metrics.pairwise import rbf_kernel
 from scipy.linalg import solve
-import psutil
 import gc
-import inspect
 import os
 import torch
 
@@ -13,13 +11,8 @@ def train_linear_and_eval(x, y, x_test, y_test):
     model = linear_model.LinearRegression()
     model.fit(x, y)
     result = mse(model, x_test, y_test)
-    return result
-def get_memory_usage_gb():
-    process = psutil.Process(os.getpid())
-    return process.memory_info().rss / 1024**3
 
 def get_color_dict():
-
   colors = {
     'pool' : 'red',
     'lasso' : 'red',

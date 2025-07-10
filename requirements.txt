@@ -3,6 +3,7 @@ pandas
 scikit-learn
 matplotlib
 scipy
+torch
 
 # The following are standard libraries and do NOT need to be included:
 # argparse, pickle, os, sys
