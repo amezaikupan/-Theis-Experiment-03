@@ -2,8 +2,9 @@ numpy
 pandas
 scikit-learn
 matplotlib
+seaborn
 scipy
-torch
+# torch
 
 # The following are standard libraries and do NOT need to be included:
 # argparse, pickle, os, sys

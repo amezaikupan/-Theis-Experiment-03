@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import rbf_kernel
 from scipy.linalg import solve
 import gc
 import os
-import torch
+# import torch
 
 def train_linear_and_eval(x, y, x_test, y_test):
     model = linear_model.LinearRegression()
@@ -278,432 +278,432 @@ def solve_blockwise(A_left_path, A_right_path, out_path, N, block_size=512, dtyp
 
 
 
-use_gpu = {"enabled": True}
+# use_gpu = {"enabled": True}
 
-def get_tensor_size_in_bytes(tensor):
-    return tensor.element_size() * tensor.nelement()
+# def get_tensor_size_in_bytes(tensor):
+#     return tensor.element_size() * tensor.nelement()
 
-def has_enough_gpu_memory(tensors):
-    total_required = sum(get_tensor_size_in_bytes(t) for t in tensors if isinstance(t, torch.Tensor))
-    total_required_gb = total_required / (1024**3)
+# def has_enough_gpu_memory(tensors):
+#     total_required = sum(get_tensor_size_in_bytes(t) for t in tensors if isinstance(t, torch.Tensor))
+#     total_required_gb = total_required / (1024**3)
     
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
-        torch.cuda.empty_cache()
-        gc.collect()
-        free_mem = torch.cuda.mem_get_info()[0] / (1024**3)
-        return free_mem >= total_required_gb
-    return False
+#     if torch.cuda.is_available():
+#         torch.cuda.synchronize()
+#         torch.cuda.empty_cache()
+#         gc.collect()
+#         free_mem = torch.cuda.mem_get_info()[0] / (1024**3)
+#         return free_mem >= total_required_gb
+#     return False
 
-def to_device(x, device):
-    if isinstance(x, torch.Tensor):
-        return x.to(device)
-    elif isinstance(x, (list, tuple)):
-        return type(x)(to_device(i, device) for i in x)
-    elif isinstance(x, dict):
-        return {k: to_device(v, device) for k, v in x.items()}
-    else:
-        return x
+# def to_device(x, device):
+#     if isinstance(x, torch.Tensor):
+#         return x.to(device)
+#     elif isinstance(x, (list, tuple)):
+#         return type(x)(to_device(i, device) for i in x)
+#     elif isinstance(x, dict):
+#         return {k: to_device(v, device) for k, v in x.items()}
+#     else:
+#         return x
 
-def to_numpy(x):
-    if isinstance(x, torch.Tensor):
-        return x.detach().cpu().numpy()
-    elif isinstance(x, (list, tuple)):
-        return type(x)(to_numpy(i) for i in x)
-    elif isinstance(x, dict):
-        return {k: to_numpy(v) for k, v in x.items()}
-    else:
-        return x
+# def to_numpy(x):
+#     if isinstance(x, torch.Tensor):
+#         return x.detach().cpu().numpy()
+#     elif isinstance(x, (list, tuple)):
+#         return type(x)(to_numpy(i) for i in x)
+#     elif isinstance(x, dict):
+#         return {k: to_numpy(v) for k, v in x.items()}
+#     else:
+#         return x
 
-def to_tensor(x):
-    if isinstance(x, np.ndarray):
-        return torch.from_numpy(x)
-    elif isinstance(x, (list, tuple)):
-        return type(x)(to_tensor(i) for i in x)
-    elif isinstance(x, dict):
-        return {k: to_tensor(v) for k, v in x.items()}
-    else:
-        return x
+# def to_tensor(x):
+#     if isinstance(x, np.ndarray):
+#         return torch.from_numpy(x)
+#     elif isinstance(x, (list, tuple)):
+#         return type(x)(to_tensor(i) for i in x)
+#     elif isinstance(x, dict):
+#         return {k: to_tensor(v) for k, v in x.items()}
+#     else:
+#         return x
 
-def all_tensors(x):
-    if isinstance(x, torch.Tensor):
-        return [x]
-    elif isinstance(x, (list, tuple)):
-        return [t for i in x for t in all_tensors(i)]
-    elif isinstance(x, dict):
-        return [t for v in x.values() for t in all_tensors(v)]
-    return []
+# def all_tensors(x):
+#     if isinstance(x, torch.Tensor):
+#         return [x]
+#     elif isinstance(x, (list, tuple)):
+#         return [t for i in x for t in all_tensors(i)]
+#     elif isinstance(x, dict):
+#         return [t for v in x.values() for t in all_tensors(v)]
+#     return []
 
-def try_gpu_then_numpy(fn, *args, **kwargs):
-    all_inputs = all_tensors(args) + all_tensors(kwargs)
-    input_devices = {t.device.type for t in all_inputs if isinstance(t, torch.Tensor)}
-
-
-    # If mixed devices or on CPU but memory available, try GPU
-    try:
-        if 'cpu' in input_devices or len(input_devices) > 1:
-            print(f"[Align] Mixed device tensors found: {input_devices}")
-            if has_enough_gpu_memory(all_inputs):
-                print("[Align] Moving all inputs to GPU.")
-                args = to_device(args, 'cuda')
-                kwargs = to_device(kwargs, 'cuda')
-            else:
-                print("[Align] Moving all inputs to CPU.")
-                args = to_device(args, 'cpu')
-                kwargs = to_device(kwargs, 'cpu')
-        return fn(*args, **kwargs)
-
-    except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
-        if "CUDA out of memory" in str(e) or isinstance(e, torch.cuda.OutOfMemoryError):
-            print(f"[OOM] Falling back to NumPy for: {fn.__name__ if hasattr(fn, '__name__') else str(fn)}")
-            torch.cuda.empty_cache()
-            gc.collect()
-
-            args_np = to_numpy(args)
-            kwargs_np = to_numpy(kwargs)
-
-            try:
-                print("[INFO] Using NumPy fallback.")
-                result_np = fn(*args_np, **kwargs_np)
-                result_tensor = to_tensor(result_np)
-
-                try:
-                    result_tensor = result_tensor.to("cuda")
-                    print("[Recovery] Successfully moved result back to GPU.")
-                except RuntimeError:
-                    print("[Recovery] GPU move failed. Staying on CPU.")
-                    use_gpu["enabled"] = False
-
-                return result_tensor
-            except Exception as e_np:
-                print(f"[ERROR] NumPy fallback failed: {e_np}")
-                raise e_np
-        else:
-            raise
-
-def try_gpu_safe(fn, *args, **kwargs):
-    all_inputs = all_tensors(args) + all_tensors(kwargs)
-    input_devices = {t.device.type for t in all_inputs if isinstance(t, torch.Tensor)}
-
-    # Nếu có tensor ở CPU hoặc mix device → thử chuyển sang GPU
-    if 'cpu' in input_devices or len(input_devices) > 1:
-        if has_enough_gpu_memory(all_inputs):
-            print("[Align] Moving all inputs to GPU.")
-            args = to_device(args, 'cuda')
-            kwargs = to_device(kwargs, 'cuda')
-        else:
-            print("[Fallback] Moving all inputs to CPU.")
-            args = to_device(args, 'cpu')
-            kwargs = to_device(kwargs, 'cpu')
-
-    try:
-        return fn(*args, **kwargs)
-
-    except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
-        if "CUDA out of memory" in str(e) or isinstance(e, torch.cuda.OutOfMemoryError):
-            print("[OOM] CUDA memory error. Retrying on CPU...")
-            torch.cuda.empty_cache()
-            gc.collect()
-            args_cpu = to_device(args, 'cpu')
-            kwargs_cpu = to_device(kwargs, 'cpu')
-            return fn(*args_cpu, **kwargs_cpu)
-        else:
-            raise
+# def try_gpu_then_numpy(fn, *args, **kwargs):
+#     all_inputs = all_tensors(args) + all_tensors(kwargs)
+#     input_devices = {t.device.type for t in all_inputs if isinstance(t, torch.Tensor)}
 
 
-def build_L_matrix(groupIdx, N, dtype=torch.float32, device='cuda'):
-    if isinstance (groupIdx, np.ndarray):
-        groupIdx = groupIdx.astype(np.int32)
-        unique_groups = np.unique(groupIdx)
-        G = len(unique_groups)
-        group_counts = np.array([(groupIdx == g).sum() for g in unique_groups])
+#     # If mixed devices or on CPU but memory available, try GPU
+#     try:
+#         if 'cpu' in input_devices or len(input_devices) > 1:
+#             print(f"[Align] Mixed device tensors found: {input_devices}")
+#             if has_enough_gpu_memory(all_inputs):
+#                 print("[Align] Moving all inputs to GPU.")
+#                 args = to_device(args, 'cuda')
+#                 kwargs = to_device(kwargs, 'cuda')
+#             else:
+#                 print("[Align] Moving all inputs to CPU.")
+#                 args = to_device(args, 'cpu')
+#                 kwargs = to_device(kwargs, 'cpu')
+#         return fn(*args, **kwargs)
 
-        L = np.zeros((N, N), dtype=np.float32)
+#     except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
+#         if "CUDA out of memory" in str(e) or isinstance(e, torch.cuda.OutOfMemoryError):
+#             print(f"[OOM] Falling back to NumPy for: {fn.__name__ if hasattr(fn, '__name__') else str(fn)}")
+#             torch.cuda.empty_cache()
+#             gc.collect()
 
-        for g, count in zip(unique_groups, group_counts):
-            idx = np.where(groupIdx == g)[0]
-            val = 1 / (G * count**2) - 1 / (G**2 * count**2)
-            L[np.ix_(idx, idx)] = val
+#             args_np = to_numpy(args)
+#             kwargs_np = to_numpy(kwargs)
 
-        for i, (g1, s1) in enumerate(zip(unique_groups, group_counts)):
-            for j, (g2, s2) in enumerate(zip(unique_groups, group_counts)):
-                if g1 != g2:
-                    idx1 = np.where(groupIdx == g1)[0]
-                    idx2 = np.where(groupIdx == g2)[0]
-                    val = -1 / (G**2 * s1 * s2)
-                    L[np.ix_(idx1, idx2)] = val
-        return L
-    else:
-        groupIdx = groupIdx.to(device)
-        unique_groups = torch.unique(groupIdx)
-        G = len(unique_groups)
-        group_counts = torch.stack([(groupIdx == g).sum() for g in unique_groups])
+#             try:
+#                 print("[INFO] Using NumPy fallback.")
+#                 result_np = fn(*args_np, **kwargs_np)
+#                 result_tensor = to_tensor(result_np)
 
-        L = torch.zeros((N, N), dtype=dtype, device=device)
+#                 try:
+#                     result_tensor = result_tensor.to("cuda")
+#                     print("[Recovery] Successfully moved result back to GPU.")
+#                 except RuntimeError:
+#                     print("[Recovery] GPU move failed. Staying on CPU.")
+#                     use_gpu["enabled"] = False
 
-        for g, count in zip(unique_groups, group_counts):
-            idx = (groupIdx == g).nonzero(as_tuple=True)[0]
-            val = 1 / (G * count.item()**2) - 1 / (G**2 * count.item()**2)
-            L[idx.unsqueeze(1), idx] = val
+#                 return result_tensor
+#             except Exception as e_np:
+#                 print(f"[ERROR] NumPy fallback failed: {e_np}")
+#                 raise e_np
+#         else:
+#             raise
 
-        for i, (g1, s1) in enumerate(zip(unique_groups, group_counts)):
-            for j, (g2, s2) in enumerate(zip(unique_groups, group_counts)):
-                if g1 != g2:
-                    idx1 = (groupIdx == g1).nonzero(as_tuple=True)[0]
-                    idx2 = (groupIdx == g2).nonzero(as_tuple=True)[0]
-                    val = -1 / (G**2 * s1.item() * s2.item())
-                    L[idx1.unsqueeze(1), idx2] = val
+# def try_gpu_safe(fn, *args, **kwargs):
+#     all_inputs = all_tensors(args) + all_tensors(kwargs)
+#     input_devices = {t.device.type for t in all_inputs if isinstance(t, torch.Tensor)}
 
-        return L
+#     # Nếu có tensor ở CPU hoặc mix device → thử chuyển sang GPU
+#     if 'cpu' in input_devices or len(input_devices) > 1:
+#         if has_enough_gpu_memory(all_inputs):
+#             print("[Align] Moving all inputs to GPU.")
+#             args = to_device(args, 'cuda')
+#             kwargs = to_device(kwargs, 'cuda')
+#         else:
+#             print("[Fallback] Moving all inputs to CPU.")
+#             args = to_device(args, 'cpu')
+#             kwargs = to_device(kwargs, 'cpu')
+
+#     try:
+#         return fn(*args, **kwargs)
+
+#     except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
+#         if "CUDA out of memory" in str(e) or isinstance(e, torch.cuda.OutOfMemoryError):
+#             print("[OOM] CUDA memory error. Retrying on CPU...")
+#             torch.cuda.empty_cache()
+#             gc.collect()
+#             args_cpu = to_device(args, 'cpu')
+#             kwargs_cpu = to_device(kwargs, 'cpu')
+#             return fn(*args_cpu, **kwargs_cpu)
+#         else:
+#             raise
+
+
+# def build_L_matrix(groupIdx, N, dtype=torch.float32, device='cuda'):
+#     if isinstance (groupIdx, np.ndarray):
+#         groupIdx = groupIdx.astype(np.int32)
+#         unique_groups = np.unique(groupIdx)
+#         G = len(unique_groups)
+#         group_counts = np.array([(groupIdx == g).sum() for g in unique_groups])
+
+#         L = np.zeros((N, N), dtype=np.float32)
+
+#         for g, count in zip(unique_groups, group_counts):
+#             idx = np.where(groupIdx == g)[0]
+#             val = 1 / (G * count**2) - 1 / (G**2 * count**2)
+#             L[np.ix_(idx, idx)] = val
+
+#         for i, (g1, s1) in enumerate(zip(unique_groups, group_counts)):
+#             for j, (g2, s2) in enumerate(zip(unique_groups, group_counts)):
+#                 if g1 != g2:
+#                     idx1 = np.where(groupIdx == g1)[0]
+#                     idx2 = np.where(groupIdx == g2)[0]
+#                     val = -1 / (G**2 * s1 * s2)
+#                     L[np.ix_(idx1, idx2)] = val
+#         return L
+#     else:
+#         groupIdx = groupIdx.to(device)
+#         unique_groups = torch.unique(groupIdx)
+#         G = len(unique_groups)
+#         group_counts = torch.stack([(groupIdx == g).sum() for g in unique_groups])
+
+#         L = torch.zeros((N, N), dtype=dtype, device=device)
+
+#         for g, count in zip(unique_groups, group_counts):
+#             idx = (groupIdx == g).nonzero(as_tuple=True)[0]
+#             val = 1 / (G * count.item()**2) - 1 / (G**2 * count.item()**2)
+#             L[idx.unsqueeze(1), idx] = val
+
+#         for i, (g1, s1) in enumerate(zip(unique_groups, group_counts)):
+#             for j, (g2, s2) in enumerate(zip(unique_groups, group_counts)):
+#                 if g1 != g2:
+#                     idx1 = (groupIdx == g1).nonzero(as_tuple=True)[0]
+#                     idx2 = (groupIdx == g2).nonzero(as_tuple=True)[0]
+#                     val = -1 / (G**2 * s1.item() * s2.item())
+#                     L[idx1.unsqueeze(1), idx2] = val
+
+#         return L
     
-def center_kernel_blockwise(K, block_size=512, device=None):
-    if isinstance (K, np.ndarray):
-        N = K.shape[0]
-        K_mean_row = np.mean(K, axis=1, keepdims=True)
-        K_mean_col = np.mean(K, axis=0, keepdims=True)
-        K_mean_total = np.mean(K)
+# def center_kernel_blockwise(K, block_size=512, device=None):
+#     if isinstance (K, np.ndarray):
+#         N = K.shape[0]
+#         K_mean_row = np.mean(K, axis=1, keepdims=True)
+#         K_mean_col = np.mean(K, axis=0, keepdims=True)
+#         K_mean_total = np.mean(K)
 
-        K_centered = np.zeros_like(K)
+#         K_centered = np.zeros_like(K)
 
-        for i in range(0, N, block_size):
-            i_end = min(i + block_size, N)
-            for j in range(0, N, block_size):
-                j_end = min(j + block_size, N)
+#         for i in range(0, N, block_size):
+#             i_end = min(i + block_size, N)
+#             for j in range(0, N, block_size):
+#                 j_end = min(j + block_size, N)
 
-                block = K[i:i_end, j:j_end].copy()  # copy to avoid modifying original K
-                block -= K_mean_row[i:i_end]
-                block -= K_mean_col[:, j:j_end]
-                block += K_mean_total
-                K_centered[i:i_end, j:j_end] = block
+#                 block = K[i:i_end, j:j_end].copy()  # copy to avoid modifying original K
+#                 block -= K_mean_row[i:i_end]
+#                 block -= K_mean_col[:, j:j_end]
+#                 block += K_mean_total
+#                 K_centered[i:i_end, j:j_end] = block
 
-        return K_centered
-    else: 
-        N = K.shape[0]
-        K_mean_row = K.mean(dim=1, keepdim=True)
-        K_mean_col = K.mean(dim=0, keepdim=True)
-        K_mean_total = K.mean()
+#         return K_centered
+#     else: 
+#         N = K.shape[0]
+#         K_mean_row = K.mean(dim=1, keepdim=True)
+#         K_mean_col = K.mean(dim=0, keepdim=True)
+#         K_mean_total = K.mean()
 
-        K_centered = torch.zeros_like(K)
+#         K_centered = torch.zeros_like(K)
 
-        for i in range(0, N, block_size):
-            i_end = min(i + block_size, N)
-            for j in range(0, N, block_size):
-                j_end = min(j + block_size, N)
+#         for i in range(0, N, block_size):
+#             i_end = min(i + block_size, N)
+#             for j in range(0, N, block_size):
+#                 j_end = min(j + block_size, N)
 
-                block = K[i:i_end, j:j_end]
-                block -= K_mean_row[i:i_end]
-                block -= K_mean_col[:, j:j_end]
-                block += K_mean_total
-                K_centered[i:i_end, j:j_end] = block
+#                 block = K[i:i_end, j:j_end]
+#                 block -= K_mean_row[i:i_end]
+#                 block -= K_mean_col[:, j:j_end]
+#                 block += K_mean_total
+#                 K_centered[i:i_end, j:j_end] = block
 
-        return K_centered
+#         return K_centered
 
-def blockwise_mm(A, B, block_size=512, device=None):
-    """Blockwise matrix multiplication: A (n x m) @ B (m x p)"""
-    if isinstance(A, np.ndarray) and isinstance(B, np.ndarray):
-        n, m = A.shape
-        _, p = B.shape
-        result = np.zeros((n, p), dtype=A.dtype)
+# def blockwise_mm(A, B, block_size=512, device=None):
+#     """Blockwise matrix multiplication: A (n x m) @ B (m x p)"""
+#     if isinstance(A, np.ndarray) and isinstance(B, np.ndarray):
+#         n, m = A.shape
+#         _, p = B.shape
+#         result = np.zeros((n, p), dtype=A.dtype)
 
-        for i in range(0, n, block_size):
-            i_end = min(i + block_size, n)
-            for j in range(0, p, block_size):
-                j_end = min(j + block_size, p)
-                for k in range(0, m, block_size):
-                    k_end = min(k + block_size, m)
-                    result[i:i_end, j:j_end] += A[i:i_end, k:k_end] @ B[k:k_end, j:j_end]
+#         for i in range(0, n, block_size):
+#             i_end = min(i + block_size, n)
+#             for j in range(0, p, block_size):
+#                 j_end = min(j + block_size, p)
+#                 for k in range(0, m, block_size):
+#                     k_end = min(k + block_size, m)
+#                     result[i:i_end, j:j_end] += A[i:i_end, k:k_end] @ B[k:k_end, j:j_end]
 
-        return result
+#         return result
 
-    else:
-        # Assume PyTorch tensors
-        n, m = A.shape
-        _, p = B.shape
-        device = A.device
-        dtype = A.dtype
-        result = torch.zeros((n, p), device=device, dtype=dtype)
+#     else:
+#         # Assume PyTorch tensors
+#         n, m = A.shape
+#         _, p = B.shape
+#         device = A.device
+#         dtype = A.dtype
+#         result = torch.zeros((n, p), device=device, dtype=dtype)
 
-        for i in range(0, n, block_size):
-            i_end = min(i + block_size, n)
-            for j in range(0, p, block_size):
-                j_end = min(j + block_size, p)
-                for k in range(0, m, block_size):
-                    k_end = min(k + block_size, m)
-                    result[i:i_end, j:j_end] += A[i:i_end, k:k_end] @ B[k:k_end, j:j_end]
+#         for i in range(0, n, block_size):
+#             i_end = min(i + block_size, n)
+#             for j in range(0, p, block_size):
+#                 j_end = min(j + block_size, p)
+#                 for k in range(0, m, block_size):
+#                     k_end = min(k + block_size, m)
+#                     result[i:i_end, j:j_end] += A[i:i_end, k:k_end] @ B[k:k_end, j:j_end]
 
-        return result
+#         return result
 
-def add_fn(a, b):
-    if isinstance(a, np.ndarray):
-        print("[INFO] Using NumPy add.")
-        return np.add(a, b)
-    else:
-        print("[INFO] Using Torch add.")
-        return torch.add(a, b)
+# def add_fn(a, b):
+#     if isinstance(a, np.ndarray):
+#         print("[INFO] Using NumPy add.")
+#         return np.add(a, b)
+#     else:
+#         print("[INFO] Using Torch add.")
+#         return torch.add(a, b)
 
-def solve_fn(a, b):
-    if isinstance(a, np.ndarray):
-        print("[INFO] Using NumPy solve.")
-        return np.linalg.solve(a, b)
-    else:
-        print("[INFO] Using Torch solve.")
-        return torch.linalg.solve(a, b)
+# def solve_fn(a, b):
+#     if isinstance(a, np.ndarray):
+#         print("[INFO] Using NumPy solve.")
+#         return np.linalg.solve(a, b)
+#     else:
+#         print("[INFO] Using Torch solve.")
+#         return torch.linalg.solve(a, b)
         
-def matmul_fn(a, b):
-    if isinstance(a, np.ndarray):
-        print("[INFO] Using NumPy matmul.")
-        return np.matmul(a, b)
-    else:
-        print("[INFO] Using Torch matmul.")
-        return torch.matmul(a, b)
+# def matmul_fn(a, b):
+#     if isinstance(a, np.ndarray):
+#         print("[INFO] Using NumPy matmul.")
+#         return np.matmul(a, b)
+#     else:
+#         print("[INFO] Using Torch matmul.")
+#         return torch.matmul(a, b)
     
-def safe_eye(N, dtype=torch.float32):
-    try:
-        print("[INFO] Trying Torch eye on GPU.")
-        return torch.eye(N, dtype=dtype, device='cuda')
-    except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
-        print(f"[WARNING] Torch eye on GPU failed, switching to CPU: {e}")
-        return torch.eye(N, dtype=dtype, device='cpu')
+# def safe_eye(N, dtype=torch.float32):
+#     try:
+#         print("[INFO] Trying Torch eye on GPU.")
+#         return torch.eye(N, dtype=dtype, device='cuda')
+#     except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
+#         print(f"[WARNING] Torch eye on GPU failed, switching to CPU: {e}")
+#         return torch.eye(N, dtype=dtype, device='cpu')
 
 
-def safe_eigh(a):
-    if isinstance(a, np.ndarray):
-        print("[INFO] Using NumPy eigh.")
-        return np.linalg.eigh(a)
-    else:
-        print("[INFO] Using Torch eigh.")
-        return torch.linalg.eigh(a)
+# def safe_eigh(a):
+#     if isinstance(a, np.ndarray):
+#         print("[INFO] Using NumPy eigh.")
+#         return np.linalg.eigh(a)
+#     else:
+#         print("[INFO] Using Torch eigh.")
+#         return torch.linalg.eigh(a)
     
+# # def safe_eig(a):
+# #     if isinstance(a, np.ndarray):
+# #         print("[INFO] Using NumPy eig.")
+# #         return np.linalg.eig(a)
+# #     else:
+# #         print("[INFO] Using Torch eig.")
+# #         return torch.linalg.eig(a)
 # def safe_eig(a):
 #     if isinstance(a, np.ndarray):
 #         print("[INFO] Using NumPy eig.")
 #         return np.linalg.eig(a)
-#     else:
-#         print("[INFO] Using Torch eig.")
+#     try:
+#         print("[INFO] Using Torch eig on GPU.")
 #         return torch.linalg.eig(a)
-def safe_eig(a):
-    if isinstance(a, np.ndarray):
-        print("[INFO] Using NumPy eig.")
-        return np.linalg.eig(a)
-    try:
-        print("[INFO] Using Torch eig on GPU.")
-        return torch.linalg.eig(a)
-    except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
-        print("[WARNING] Torch eig on GPU failed, switching to CPU:", e)
-        a_cpu = a.detach().cpu()
-        return torch.linalg.eig(a_cpu)
+#     except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
+#         print("[WARNING] Torch eig on GPU failed, switching to CPU:", e)
+#         a_cpu = a.detach().cpu()
+#         return torch.linalg.eig(a_cpu)
 
     
-def safe_topk(values, k):
-    if isinstance(values, np.ndarray):
-        print("[INFO] Using NumPy topk.")
-        indices = np.argpartition(-values, k)[:k]
-        topk_vals = values[indices]
-        # Sort descending
-        sorted_idx = np.argsort(-topk_vals)
-        indices = indices[sorted_idx]
-        return topk_vals[sorted_idx], indices
-    else:
-        print("[INFO] Using Torch topk.")
-        return torch.topk(values, k)
-def safe_sqrt(x):
-    if isinstance(x, np.ndarray):
-        print("[INFO] Using NumPy sqrt.")
-        return np.sqrt(x)
-    else:
-        print("[INFO] Using Torch sqrt.")
-        return torch.sqrt(x)
-def safe_diag(x):
-    if isinstance(x, np.ndarray):
-        print("[INFO] Using NumPy diag.")
-        return np.diag(x)
-    else:
-        print("[INFO] Using Torch diag.")
-        return torch.diag(x)
-def scale_fn(x, scalar):
-    if isinstance(x, np.ndarray):
-        print("[INFO] Using NumPy scale.")
-        return x * scalar
-    else:
-        print("[INFO] Using Torch scale.")
-        return x * scalar
+# def safe_topk(values, k):
+#     if isinstance(values, np.ndarray):
+#         print("[INFO] Using NumPy topk.")
+#         indices = np.argpartition(-values, k)[:k]
+#         topk_vals = values[indices]
+#         # Sort descending
+#         sorted_idx = np.argsort(-topk_vals)
+#         indices = indices[sorted_idx]
+#         return topk_vals[sorted_idx], indices
+#     else:
+#         print("[INFO] Using Torch topk.")
+#         return torch.topk(values, k)
+# def safe_sqrt(x):
+#     if isinstance(x, np.ndarray):
+#         print("[INFO] Using NumPy sqrt.")
+#         return np.sqrt(x)
+#     else:
+#         print("[INFO] Using Torch sqrt.")
+#         return torch.sqrt(x)
+# def safe_diag(x):
+#     if isinstance(x, np.ndarray):
+#         print("[INFO] Using NumPy diag.")
+#         return np.diag(x)
+#     else:
+#         print("[INFO] Using Torch diag.")
+#         return torch.diag(x)
+# def scale_fn(x, scalar):
+#     if isinstance(x, np.ndarray):
+#         print("[INFO] Using NumPy scale.")
+#         return x * scalar
+#     else:
+#         print("[INFO] Using Torch scale.")
+#         return x * scalar
     
-def safe_ones(shape, dtype=torch.float32):
-    try:
-        print("[INFO] Trying Torch ones on GPU.")
-        return torch.ones(shape, device='cuda', dtype=dtype)
-    except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
-        print(f"[WARNING] Torch ones on GPU failed, switching to CPU: {e}")
-        return torch.ones(shape, device='cpu', dtype=dtype)
+# def safe_ones(shape, dtype=torch.float32):
+#     try:
+#         print("[INFO] Trying Torch ones on GPU.")
+#         return torch.ones(shape, device='cuda', dtype=dtype)
+#     except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
+#         print(f"[WARNING] Torch ones on GPU failed, switching to CPU: {e}")
+#         return torch.ones(shape, device='cpu', dtype=dtype)
     
-def safe_unique(tensor):
-    try:
-        print("[INFO] Using Torch unique.")
-        return torch.unique(tensor)
-    except RuntimeError as e:
-        print(f"[WARNING] Torch unique failed, switching to CPU: {e}")
-        tensor_cpu = tensor.detach().cpu()
-        return torch.unique(tensor_cpu)
-def safe_divide(tensor, value):
-    try:
-        # Try dividing on GPU if possible
-        return tensor / value
-    except RuntimeError as e:
-        print("[INFO] GPU out of memory during division, switching to CPU:", e)
-        # Fallback to CPU if GPU allocation fails
-        return tensor.to('cpu') / value
+# def safe_unique(tensor):
+#     try:
+#         print("[INFO] Using Torch unique.")
+#         return torch.unique(tensor)
+#     except RuntimeError as e:
+#         print(f"[WARNING] Torch unique failed, switching to CPU: {e}")
+#         tensor_cpu = tensor.detach().cpu()
+#         return torch.unique(tensor_cpu)
+# def safe_divide(tensor, value):
+#     try:
+#         # Try dividing on GPU if possible
+#         return tensor / value
+#     except RuntimeError as e:
+#         print("[INFO] GPU out of memory during division, switching to CPU:", e)
+#         # Fallback to CPU if GPU allocation fails
+#         return tensor.to('cpu') / value
 
-def subtract_fn(a, b):
-    return a - b
-def divide_fn(a, b, unsqueeze_dim=None):
-    if not torch.is_tensor(b):
-        b = torch.tensor(b, dtype=a.dtype, device=a.device)
-    else:
-        b = b.to(a.device)
+# def subtract_fn(a, b):
+#     return a - b
+# def divide_fn(a, b, unsqueeze_dim=None):
+#     if not torch.is_tensor(b):
+#         b = torch.tensor(b, dtype=a.dtype, device=a.device)
+#     else:
+#         b = b.to(a.device)
 
-    if unsqueeze_dim is not None:
-        b = b.unsqueeze(unsqueeze_dim)
+#     if unsqueeze_dim is not None:
+#         b = b.unsqueeze(unsqueeze_dim)
 
-    return a / b
+#     return a / b
 
-#Select top 11 predictors from Lasso
-def lasso_alpha_search_synt(X,Y):
+# #Select top 11 predictors from Lasso
+# def lasso_alpha_search_synt(X,Y):
 
-    exit_loop = False
-    alpha_lasso = 0.2
-    step = 0.02
-    num_iters = 1000
-    count = 0
-    n = 11
+#     exit_loop = False
+#     alpha_lasso = 0.2
+#     step = 0.02
+#     num_iters = 1000
+#     count = 0
+#     n = 11
 
-    while(not exit_loop and count < num_iters):
-            count = count + 1
+#     while(not exit_loop and count < num_iters):
+#             count = count + 1
 
-            regr = linear_model.Lasso(alpha = alpha_lasso)
-            regr.fit(X,Y.flatten())
-            zeros =  np.where(np.abs(regr.coef_) < 0.00000000001)
+#             regr = linear_model.Lasso(alpha = alpha_lasso)
+#             regr.fit(X,Y.flatten())
+#             zeros =  np.where(np.abs(regr.coef_) < 0.00000000001)
 
-            nonzeros = X.shape[1]-zeros[0].shape[0]
+#             nonzeros = X.shape[1]-zeros[0].shape[0]
 
-            if(nonzeros >= n and nonzeros<n+1):
-                    exit_loop = True
-            if nonzeros<n:
-                    alpha_lasso -= step
-            else:
-                    step /= 2
-                    alpha_lasso += step
-
-
-    mask = np.ones(X.shape[1],dtype = bool)
-    mask[zeros] = False
-    genes = []
-    index_mask = np.where(mask == True)[0]
-
-    return mask
+#             if(nonzeros >= n and nonzeros<n+1):
+#                     exit_loop = True
+#             if nonzeros<n:
+#                     alpha_lasso -= step
+#             else:
+#                     step /= 2
+#                     alpha_lasso += step
 
 
-def intervene_on_p(l_p, sz):
-  mask = np.zeros((sz, 1), dtype = bool)
-  if len(l_p) > 0:
-    mask[l_p] = True
-  return mask
+#     mask = np.ones(X.shape[1],dtype = bool)
+#     mask[zeros] = False
+#     genes = []
+#     index_mask = np.where(mask == True)[0]
+
+#     return mask
+
+
+# def intervene_on_p(l_p, sz):
+#   mask = np.zeros((sz, 1), dtype = bool)
+#   if len(l_p) > 0:
+#     mask[l_p] = True
+#   return mask
