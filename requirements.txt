@@ -1,6 +1,14 @@
-numpy==1.23.5
-pandas==1.5.3
-matplotlib==3.6.2
-scikit-learn==1.1.3
-scipy==1.9.3
-seaborn==0.12.2
+numpy
+pandas
+scikit-learn
+matplotlib
+scipy
+
+# The following are standard libraries and do NOT need to be included:
+# argparse, pickle, os, sys
+
+# You may still list them here as comments for clarity
+# argparse (standard lib)
+# pickle (standard lib)
+# os (standard lib)
+# sys (standard lib)
