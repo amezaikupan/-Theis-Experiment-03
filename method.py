@@ -7,7 +7,7 @@ import os
 import sys 
 import re_subset_search as subset_search  # Assuming subset_search is a custom module for model fitting and evaluation
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import *  # Assuming mse is a custom utility function for evaluation metrics
 
 class Method:
