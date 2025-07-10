@@ -1,10 +1,10 @@
-name: Run Experiment 01
+name: Run HSIC
 
 # Triggers the workflow on push events to the main branch
 on:
   push:
     branches:
-      - tn  # Triggers when you push to the main branch
+      - main  # Triggers when you push to the main branch
 
 jobs:
   run-python:
