@@ -3,6 +3,9 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os 
+import math
+import scipy as sp
+
 
 def _save_visualization_bar(annot, k=6):
     # Load your CSV
@@ -109,13 +112,6 @@ def plot_per_sample_results(csv_path, annot, output_dir="per-sample-plots", focu
             print(f"[!] No data found for task={focus_task}, method={focus_method}")
 
     print(f"✅ Plots saved to '{output_dir}/'")
-
-import os
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import scipy as sp
 
 # Rewrite: they have the same parameter  
 def levene(residual, n_samples_per_task):

@@ -1,6 +1,10 @@
 
 import numpy as np
 from sklearn import linear_model
+from sklearn.ensemble import RandomForestRegressor 
+from lightgbm import LGBMRegressor
+from sklearn.neural_network import MLPRegressor
+
 from sklearn.metrics import accuracy_score
 
 import os 
@@ -64,9 +68,7 @@ class SGreedy(Method):
         # y_train = np.log1p(y_train)  # Log transform the target variable
 
         if self.params['mycode']:
-            from Rewrite.re_subset_search import greedy_search
-
-            s_greedy = greedy_search(
+            s_greedy = subset_search.greedy_search(
                 X_train, y_train, 
                 alpha=self.params['delta'],
                 valid_split=self.params['valid_split'],
@@ -142,11 +144,10 @@ class SHat(Method):
         # y_train = np.log1p(y_train)
 
         if self.params['mycode']:
-            from re_subset_search import full_search
             self.lasso_mask = None
             if (len(X_train[1]) < 13): 
                 print('---No Lasso ---')
-                s_hat = full_search(
+                s_hat = subset_search.full_search(
                     X_train, y_train, 
                     alpha=self.params['delta'],
                     valid_split=self.params['valid_split'],
@@ -161,7 +162,7 @@ class SHat(Method):
 
                 X_train = X_train[:, lasso_mask]
                 
-                s_hat = full_search(
+                s_hat = subset_search.full_search(
                     X_train, y_train, 
                     alpha=self.params['delta'],
                     valid_split=self.params['valid_split'],
@@ -189,7 +190,7 @@ class SHat(Method):
 
                 X_train = X_train[:, lasso_mask]
                 
-                s_hat = subset_search.subset(
+                s_hat = subset_search.full_search(
                     X_train, y_train, 
                     delta=self.params['delta'],
                     valid_split=self.params['valid_split'],
@@ -287,7 +288,6 @@ class Pooling_RF(Method):
         # This is a placeholder for actual fitting logic
         # y_train = np.log1p(y_train)  # Log transform the target variable
 
-        from sklearn.ensemble import RandomForestRegressor 
         self.model = RandomForestRegressor(
             n_estimators=500,
             max_depth=None,
@@ -330,7 +330,6 @@ class Pooling_LGBM(Method):
         # This is a placeholder for actual fitting logic
 
         # y_train = np.log1p(y_train)  # Log transform the target variable
-        from lightgbm import LGBMRegressor
         self.model = LGBMRegressor(
             objective='regression',   # or 'regression_l1', 'huber', etc.
             n_estimators=100,
@@ -363,7 +362,6 @@ class Pooling_NN(Method):
         super().__init__(name)
 
     def fit(self, X_train, y_train, params):
-        from sklearn.neural_network import MLPRegressor
 
         self.model = MLPRegressor(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
         self.model.fit(X_train, y_train)

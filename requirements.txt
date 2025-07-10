@@ -4,6 +4,7 @@ scikit-learn
 matplotlib
 seaborn
 scipy
+lightgbm
 # torch
 
 # The following are standard libraries and do NOT need to be included:
