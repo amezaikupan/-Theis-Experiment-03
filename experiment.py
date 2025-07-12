@@ -106,7 +106,7 @@ class Experiment:
             # --- TRAINING EVALUATION ---
         
             residuals_train =  method.cal_residuals_list(X_train, y_train)
-            print(residuals_train.shape)
+            # print(residuals_train)
             predictions_train = method.predict(X_train)
 
             # Collect per-sample results for training
@@ -146,8 +146,8 @@ class Experiment:
                 X_test, y_test, _ = self.data_processor.get_xy_split(test_task_dict)
 
                 predictions_test = method.predict(X_test)
+                # print(f"Prediction 1: {predictions_test[:5]}")
                 residuals_test = method.cal_residuals_list(X_test, y_test)
-
                 # Collect per-sample results for testing
                 for i in range(len(y_test)):
                     per_sample_records.append({

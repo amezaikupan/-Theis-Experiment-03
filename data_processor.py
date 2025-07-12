@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np 
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import gc
 import warnings
 warnings.filterwarnings('ignore')
@@ -25,6 +25,7 @@ class DataProcessor:
                 if col not in numerical_features
                 and col not in task_division
                 and col != target]
+        
         print("Columns removed due to high NA percentage:")
         print(cols_removed)
         self.process_na_rows()
@@ -49,8 +50,10 @@ class DataProcessor:
         print(f"Nan value {np.sum(self.data.isna())}")
 
         # Remove outliners 
-        self.clip_extreme_values()
+        self.clip_extreme_values(self.target)
+        
 
+        # self.data
         self.task_division = task_division
         self.tasks = self._task_division()
         self.n_tasks = len(self.tasks)
@@ -182,10 +185,10 @@ class DataProcessor:
             self.data = self.data.dropna(how="any")
 
 
-    def clip_extreme_values(self, lower_pct=0, upper_pct=0.95):
-        lower = self.data[self.target].quantile(lower_pct)
-        upper = self.data[self.target].quantile(upper_pct)
-        self.data = self.data[(self.data[self.target] >= lower) & (self.data[self.target] <= upper)]    
+    def clip_extreme_values(self, feature, lower_pct=0.25, upper_pct=0.75):
+        lower = self.data[feature].quantile(lower_pct)
+        upper = self.data[feature].quantile(upper_pct)
+        return self.data[(self.data[feature] >= lower) & (self.data[feature] <= upper)]    
 
     def process_features(self):
         # PROCESS NUMERICAL FEATURES
@@ -198,26 +201,36 @@ class DataProcessor:
         # print(len(numeric_data))
 
         # Ensure values are >= -1 (log1p is undefined for values < -1)
-        # for col in self.numerical_features:
-        #     if (numeric_data[col] < -1).any():
-        #         print(f"Skipping column {col}: contains values < -1")
-        #         continue
-        #     numeric_data[col] = np.log1p(numeric_data[col])
+        for col in self.numerical_features:
+            print(numeric_data[col].value_counts())
+            if (numeric_data[col] < -1).any():
+                print(f"Skipping column {col}: contains values < -1")
+                continue
+            numeric_data[col] = np.log1p(numeric_data[col] + 0.00000001)
 
         scaler = StandardScaler()
+        # scaler = MinMaxScaler()
+
         numeric_data = pd.DataFrame(scaler.fit_transform(numeric_data), columns=self.numerical_features)      
         numeric_data.index = self.data.index
-        
+            
         # PROCESS CATEGORICAL FEATURES
-        categorical_data = pd.get_dummies(self.data[self.categorical_features], drop_first=True)
-        # print("PROCESS CATEGORICAL FEATURES", np.sum(categorical_data.isna()))
-        # print(len(categorical_data))
-        categorical_data.index = self.data.index
+        if len(self.categorical_features) == 0:
+            categorical_data = None 
+        else: 
+            categorical_data = pd.get_dummies(self.data[self.categorical_features], drop_first=True)
+            # print("PROCESS CATEGORICAL FEATURES", np.sum(categorical_data.isna()))
+            # print(len(categorical_data))
+            categorical_data.index = self.data.index
 
         task_division_data = self.data[self.task_division]        
         target_data = self.data[self.target]
         # MERGE TO DATA
-        self.data = pd.concat([numeric_data, categorical_data, task_division_data, target_data], axis=1)
+        if categorical_data is not None:
+            self.data = pd.concat([numeric_data, categorical_data, task_division_data, target_data], axis=1)
+        else:
+            self.data = pd.concat([numeric_data, task_division_data, target_data], axis=1)
+
         print("^^^^^^^^^^^ process_features ^^^^^^^^^^^^^")
         print(self.data.head(1))
     

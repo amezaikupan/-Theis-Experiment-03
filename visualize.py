@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy.linalg import block_diag
+
 import os 
 import math
 import scipy as sp
@@ -120,28 +122,100 @@ def levene(residual, n_samples_per_task):
     residual_boundary = [residual[task_boundary[i]:task_boundary[i+1], :] for i in range(num_tasks)]
     stat, pval = sp.stats.levene(*residual_boundary)
     # print("Stat, pval", stat, pval)
-    return stat, pval
+    return pval[0]
 
+def hsic(residual, n_samples_per_task):
+    def get_kernel_matrix(X, sX):
+        kernel = (X[:, :, np.newaxis] - X.T).T
+        kernel = np.exp(-1.0 / (2 * sX) * np.linalg.norm(kernel, axis=1))
+        return kernel
 
-def plot_scatter_on_all_tasks(csv_path, annot, output_dir="scatter-on-all-task", focus_method=None, point_size=10):
+    def get_sX(X, y):
+        k = X[:, :, np.newaxis] - y.T 
+        ls = np.linalg.norm(k, axis=1)
+        sX = 0.5 * np.median(ls.flatten())
+        return sX
+    
+    # Optimized 
+    def get_task_boundray_matrix(n_samples_per_task):
+        return block_diag(*[np.ones((n, n)) for n in n_samples_per_task])
+
+    valid_dom = get_task_boundray_matrix(n_samples_per_task)
+    sX = get_sX(residual, residual)
+    #------- 
+    X = residual
+    y = valid_dom
+
+    n = X.T.shape[1]
+    kernel_X = get_kernel_matrix(X, sX)
+    kernel_y = valid_dom
+    coef = 1.0 / n
+
+     # The formula can be founded there https://proceedings.neurips.cc/paper_files/paper/2007/file/d5cfead94f5350c12c322b5b664544c1-Paper.pdf
+    HSIC = (
+        (coef**2) * np.sum(kernel_X * kernel_y)
+        + coef**4 * np.sum(kernel_X) * np.sum(kernel_y)
+        - 2 * coef**3 * np.sum(np.sum(kernel_X, axis=1) * np.sum(kernel_y, axis=1))
+    )
+
+    # Get sums of Kernels
+    KXsum = np.sum(kernel_X)
+    KYsum = np.sum(kernel_y)
+
+    # Get stats for gamma approx
+    xMu = 1.0 / (n * (n - 1)) * (KXsum - n)
+    yMu = 1.0 / (n * (n - 1)) * (KYsum - n)
+    V1 = (
+        coef**2 * np.sum(kernel_X * kernel_X)
+        + coef**4 * KXsum**2
+        - 2 * coef**3 * np.sum(np.sum(kernel_X, axis=1) ** 2)
+    )
+    V2 = (
+        coef**2 * np.sum(kernel_y * kernel_y)
+        + coef**4 * KYsum**2
+        - 2 * coef**3 * np.sum(np.sum(kernel_y, axis=1) ** 2)
+    )
+
+    meanH0 = (1.0 + xMu * yMu - xMu - yMu) / n
+    varH0 = 2.0 * (n - 4) * (n - 5) / (n * (n - 1.0) * (n - 2.0) * (n - 3.0)) * V1 * V2
+
+    # Parameters of the Gamma
+    a = meanH0**2 / varH0
+    b = n * varH0 / meanH0
+
+    pval = 1.0 - sp.stats.gamma.cdf(n * HSIC, a, scale=b)
+    return pval
+
+def plot_scatter_on_all_tasks(csv_path, annot, set, output_dir="scatter-on-all-task", focus_method=None, point_size=10):
+    print(f"FOCUS METHOD: {focus_method}____________")
     df = pd.read_csv(csv_path)
-    set = 'train'
     df = df[df['split'] == set]
 
     if focus_method is not None:
         df = df[df['method'] == focus_method]
 
     # Create output directory if it doesn't exist
+    output_dir = f"{output_dir}/{focus_method}"
     os.makedirs(output_dir, exist_ok=True)
 
     # Calculate statistics
-    mean_residual = np.mean(df['prediction'] - df['true_label'])
+    mean_residual = np.mean(np.abs(df['prediction'] - df['true_label']))
     mean_rmse = np.sqrt(np.mean((df['prediction'] - df['true_label'])**2))
 
     n_samples_per_tasks = df['task'].value_counts().values
+    # print(n_samples_per_tasks)
+
+    print(df['residual'].head(5))
     print(n_samples_per_tasks)
-    stat, pval = levene(df['residual'].to_numpy()[:, np.newaxis], n_samples_per_tasks)
-    pval = pval[0]
+    test = 'levene'
+    if test == 'levene':
+        pval = levene(df['residual'].to_numpy()[:, np.newaxis], n_samples_per_tasks)
+    else: 
+        pval = hsic(df['residual'].to_numpy()[:, np.newaxis], n_samples_per_tasks)
+        
+    # print(df['residual'].head(10))
+    # print(n_samples_per_tasks)
+    # pval = pval[0]
 
     print(f"Pvalues {pval}")
 
@@ -163,7 +237,7 @@ def plot_scatter_on_all_tasks(csv_path, annot, output_dir="scatter-on-all-task",
     plt.plot([min_val, max_val], [min_val, max_val], color="red", linestyle="--", label="Ideal Prediction")
 
     # Annotate mean residual and RMSE on the plot
-    textstr = f"Mean Residual: {mean_residual:.4f}\nMean RMSE: {mean_rmse:.4f}\nLevene pvals: {pval}"
+    textstr = f"Mean Residual: {mean_residual:.4f}\nMean RMSE: {mean_rmse:.4f}\{test} pvals: {pval}"
     plt.text(
         0.05, 0.95, textstr,
         transform=plt.gca().transAxes,
@@ -182,7 +256,7 @@ def plot_scatter_on_all_tasks(csv_path, annot, output_dir="scatter-on-all-task",
     plt.tight_layout()
 
     # Save plot
-    fname = f"{set}/{focus_method}_{annot}_all_tasks.png"
+    fname = f"{set}_{focus_method}_{annot}_all_tasks.png"
     plt.savefig(os.path.join(output_dir, fname))
     plt.close()
 
@@ -190,9 +264,10 @@ def plot_scatter_on_all_tasks(csv_path, annot, output_dir="scatter-on-all-task",
 
      # --- KDE Plot: Residual Distribution per Task ---
     plt.figure(figsize=(10, 6))
+
     sns.kdeplot(data=df, x="residual", hue="task", common_norm=False, fill=True, alpha=0.3)
     # Annotate mean residual and RMSE on the plot
-    textstr = f"Levene pvals: {pval}"
+    textstr = f"{test} pvals: {pval}"
     plt.text(
         0.05, 0.95, textstr,
         transform=plt.gca().transAxes,
@@ -200,13 +275,16 @@ def plot_scatter_on_all_tasks(csv_path, annot, output_dir="scatter-on-all-task",
         verticalalignment='top',
         bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='gray')
     )
-    plt.title(f"{focus_method} — Residual Distribution per Task ({set} Set)")
+    plt.title(f"{set}_{focus_method} — Residual Distribution per Task ({set} Set)")
     plt.xlabel("Residual")
     plt.ylabel("Density")
     plt.legend(title="Task", bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.tight_layout()
 
-    kde_fname = f"{set}/kde/{focus_method}_{annot}_residual_kde.png"
+    # os.makedirs(f"{output_dir}/kde", exist_ok=True)
+    # output_dir = f"{output_dir}/kde"
+
+    kde_fname = f"{set}_{focus_method}_{annot}_residual_kde.png"
     plt.savefig(os.path.join(output_dir, kde_fname))
     plt.close()
 
