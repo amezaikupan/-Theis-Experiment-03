@@ -1,7 +1,7 @@
 leave_out_task,n_tasks,method,loss,selected_features,split
-"(98133,)",10,shat-poly,193.16038011544578,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-"(98059,)",10,shat-poly,284.1222143138539,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-"(98058,)",10,shat-poly,415.6217562538802,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-"(98155,)",10,shat-poly,410.1581490625155,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-"(98074,)",10,shat-poly,393.08128981544263,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-training_set,10,shat-poly,381.83060706489476,,train
+"(98133,)",10,shat-poly,193.16038011544595,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
+"(98059,)",10,shat-poly,284.12221431385433,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
+"(98058,)",10,shat-poly,415.621756253881,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
+"(98155,)",10,shat-poly,410.15814906251643,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
+"(98074,)",10,shat-poly,393.0812898154438,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
+training_set,10,shat-poly,381.83060706489533,,train
