@@ -1,7 +1,61 @@
 leave_out_task,n_tasks,method,loss,selected_features,split
-"(98133,)",10,shat-poly,193.16038011544595,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-"(98059,)",10,shat-poly,284.12221431385433,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-"(98058,)",10,shat-poly,415.621756253881,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-"(98155,)",10,shat-poly,410.15814906251643,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-"(98074,)",10,shat-poly,393.0812898154438,"['bathrooms', 'sqft_lot', 'view', 'condition', 'grade', 'sqft_basement', 'waterfront']",
-training_set,10,shat-poly,381.83060706489533,,train
+"(98133,)",10,pooling,115.46498598557562,,
+"(98059,)",10,pooling,136.8875194775518,,
+"(98058,)",10,pooling,175.69501545781839,,
+"(98155,)",10,pooling,166.54312351966757,,
+"(98074,)",10,pooling,172.6937409354873,,
+training_set,10,pooling,189.13097100670248,,train
+"(98133,)",10,random_forest,106.86184246741455,,
+"(98059,)",10,random_forest,101.43674203609903,,
+"(98058,)",10,random_forest,133.47386074173377,,
+"(98155,)",10,random_forest,148.40619368560291,,
+"(98074,)",10,random_forest,153.82762057506073,,
+training_set,10,random_forest,57.09743321686958,,train
+"(98133,)",10,lightGBM,111.19441337389588,,
+"(98059,)",10,lightGBM,110.90537334506811,,
+"(98058,)",10,lightGBM,126.18357886821754,,
+"(98155,)",10,lightGBM,157.3699087779398,,
+"(98074,)",10,lightGBM,164.74861601218177,,
+training_set,10,lightGBM,106.06016091839875,,train
+"(98133,)",10,polynomial 2,106.17243902064423,,
+"(98059,)",10,polynomial 2,97.24049631161107,,
+"(98058,)",10,polynomial 2,133.3479099951963,,
+"(98155,)",10,polynomial 2,126.49467062128221,,
+"(98074,)",10,polynomial 2,151.591588501253,,
+training_set,10,polynomial 2,153.80411887818508,,train
+"(98133,)",10,shat,115.85683527984398,"['bedrooms', 'sqft_living', 'sqft_lot', 'view', 'condition', 'sqft_above', 'waterfront']",
+"(98059,)",10,shat,138.3038465957128,"['bedrooms', 'sqft_living', 'sqft_lot', 'view', 'condition', 'sqft_above', 'waterfront']",
+"(98058,)",10,shat,176.44181043255517,"['bedrooms', 'sqft_living', 'sqft_lot', 'view', 'condition', 'sqft_above', 'waterfront']",
+"(98155,)",10,shat,199.12605039884124,"['bedrooms', 'sqft_living', 'sqft_lot', 'view', 'condition', 'sqft_above', 'waterfront']",
+"(98074,)",10,shat,205.70807369677354,"['bedrooms', 'sqft_living', 'sqft_lot', 'view', 'condition', 'sqft_above', 'waterfront']",
+training_set,10,shat,194.3561961254332,,train
+"(98133,)",10,sgreedy,113.33296268049105,"['bathrooms', 'sqft_lot', 'view', 'grade', 'sqft_above', 'sqft_basement', 'sqft_living15', 'house_age']",
+"(98059,)",10,sgreedy,140.3039492467266,"['bathrooms', 'sqft_lot', 'view', 'grade', 'sqft_above', 'sqft_basement', 'sqft_living15', 'house_age']",
+"(98058,)",10,sgreedy,181.97977815941985,"['bathrooms', 'sqft_lot', 'view', 'grade', 'sqft_above', 'sqft_basement', 'sqft_living15', 'house_age']",
+"(98155,)",10,sgreedy,202.1004062090814,"['bathrooms', 'sqft_lot', 'view', 'grade', 'sqft_above', 'sqft_basement', 'sqft_living15', 'house_age']",
+"(98074,)",10,sgreedy,203.7790219029097,"['bathrooms', 'sqft_lot', 'view', 'grade', 'sqft_above', 'sqft_basement', 'sqft_living15', 'house_age']",
+training_set,10,sgreedy,195.16516974742225,,train
+"(98133,)",10,mean,166.5270379998878,,
+"(98059,)",10,mean,234.0311862469091,,
+"(98058,)",10,mean,209.9108106522158,,
+"(98155,)",10,mean,284.5362077349017,,
+"(98074,)",10,mean,315.1269513380875,,
+training_set,10,mean,285.11856496972115,,train
+"(98133,)",10,shat-poly,169.35860914635467,"['bedrooms', 'bathrooms', 'sqft_lot', 'grade', 'sqft_basement']",
+"(98059,)",10,shat-poly,285.95966866440205,"['bedrooms', 'bathrooms', 'sqft_lot', 'grade', 'sqft_basement']",
+"(98058,)",10,shat-poly,395.5941500517228,"['bedrooms', 'bathrooms', 'sqft_lot', 'grade', 'sqft_basement']",
+"(98155,)",10,shat-poly,251.07504272956137,"['bedrooms', 'bathrooms', 'sqft_lot', 'grade', 'sqft_basement']",
+"(98074,)",10,shat-poly,297.59373258254504,"['bedrooms', 'bathrooms', 'sqft_lot', 'grade', 'sqft_basement']",
+training_set,10,shat-poly,316.8875702745736,,train
+"(98133,)",10,Pooling_GAM,114.2986759246727,,
+"(98059,)",10,Pooling_GAM,99.33885155193688,,
+"(98058,)",10,Pooling_GAM,134.58035455868378,,
+"(98155,)",10,Pooling_GAM,144.8203218901508,,
+"(98074,)",10,Pooling_GAM,149.29586637222715,,
+training_set,10,Pooling_GAM,152.45007166039,,train
+"(98133,)",10,shat-gam,253.6663775147466,"['bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'view', 'condition', 'waterfront']",
+"(98059,)",10,shat-gam,361.3195644801036,"['bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'view', 'condition', 'waterfront']",
+"(98058,)",10,shat-gam,319.80852498367113,"['bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'view', 'condition', 'waterfront']",
+"(98155,)",10,shat-gam,452.45963145895286,"['bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'view', 'condition', 'waterfront']",
+"(98074,)",10,shat-gam,399.46099040954164,"['bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'view', 'condition', 'waterfront']",
+training_set,10,shat-gam,429.5663194292332,,train

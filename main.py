@@ -10,31 +10,25 @@
 import pandas as pd 
 import numpy as np
 from data_processor import DataProcessor
-from method import SGreedy, Pooling, Mean, SHat, CLF_Pool, Mode, Pooling_RF, Pooling_LGBM, Pooling_NN, Pooling_poly, SHat_RF, SHat_poly
+from method import SGreedy, Pooling, Mean, SHat, CLF_Pool, Mode, Pooling_RF, Pooling_LGBM, Pooling_NN, Pooling_poly, SHat_RF, SHat_poly, SHat_GAM, Pooling_GAM
 from experiment import Experiment
 import matplotlib.pyplot as plt 
 np.random.seed(1234)
 import visualize
 
-def clip_extremes(df, lower_pct=0.01, upper_pct=0.99):
-    return df.clip(
-        lower=df.quantile(lower_pct),
-        upper=df.quantile(upper_pct),
-        axis=1
-    )
-
-def remove_outliers_percentile(df, column, lower_pct=0.01, upper_pct=0.99):
-    lower = df[column].quantile(lower_pct)
-    upper = df[column].quantile(upper_pct)
-    return df[(df[column] >= lower) & (df[column] <= upper)]
- 
 # ************** For Life Expectancy data *****************
-file_name = 'kc_house_data'#_outliers_dect'
+file_name = 'kc_house_data'
+# '_outliers_dect_iqr'
+# _outliers_dect'
 k = 10
+
+# Mode:
+#       - 0: Train on k domains, test on each of the rest.
+#       - 1: Leave-one-out train 
 mode = 0
 
 
-column_mask = [2,3,9]
+# column_mask = [2,3,9]
 
 data = pd.read_csv(f'{file_name}.csv', index_col=False).drop(columns=['id', 'lat', 'long'])
 # Convert date string to datetime
@@ -66,14 +60,11 @@ numerical_features = ['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'floor
 categorical_features = []
 task_division = ['zipcode']
 target = 'price'
-print(data['house_age'].value_counts())
+
+print(data['zipcode'].value_counts().sort_values(ascending=False).head(10))
+
 data = data[data['house_age'] >= 0]
 
-# data = data[data['bedrooms'] < 10]
-# print(data['grade'].value_counts())
-
-# hhh
-# Filter populous zipcode 
 top_zip_codes = [98103, 98038, 98115, 98052, 98117, 98042, 98034, 98118, 98023, 98006, 98133, 98059, 98058, 98155, 98074]
 data = data[data['zipcode'].isin(top_zip_codes)]
 data['price'] = data['price']/1000
@@ -97,13 +88,14 @@ with DataProcessor(data=data, task_division=task_division, target=target, numeri
         shat_rf = SHat_RF().set_params({'alpha': 0.001, 'use_hsic': False})
         shat_poly = SHat_poly().set_params(degree=2, params={'alpha': 0.001, 'use_hsic': False})
         
-        nn = Pooling_NN()
-        print(pooling_poly.name)
+        shat_GAM = SHat_GAM().set_params({'delta': 0.001, 'use_hsic': False})
+        pooling_gam = Pooling_GAM()
+        # nn = Pooling_NN()
 # 
-        # methods = [pooling,pooling_non_lin_1,pooling_non_lin_2, pooling_poly, shat, sgreedy, mean]
-        # methods = [shat_poly, shat_rf, shat]
-        methods = [shat_poly]
-        # methods = [shat_poly]
+        methods = [pooling, shat, sgreedy, mean, pooling_non_lin_1,pooling_non_lin_2, pooling_poly,  shat_poly, pooling_gam, shat_GAM,  shat_rf]
+        # methods = [shat_GAM]
+        # methods = [pooling, shat, pooling_poly, shat_poly, pooling_gam, shat_GAM]
+   
         experiment = Experiment(dataset, methods)
 
         file_annot = f"{file_name}_tasks_{dataset.n_tasks}_k_{k}_mode_{mode}"
@@ -124,7 +116,3 @@ with DataProcessor(data=data, task_division=task_division, target=target, numeri
 # #         # # visualize.plot_per_sample_results(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method='pooling', focus_task='(98058,)')
 # #         # # # visualize.plot_per_sample_results(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method='pooling', focus_task='(98155,)')
 # #         # # # visualize.plot_per_sample_results(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method='pooling', focus_task='(98006,)')
-    
-
-# # # # 
-# # # # 

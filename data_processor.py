@@ -20,6 +20,7 @@ class DataProcessor:
         print('Before processing data:')
         print(np.sum(data.isna()))
         cols_removed = self.process_na_cols()
+        
         self.numerical_features = [feat for feat in numerical_features if feat not in cols_removed]
         self.categorical_features = [col for col in self.data.columns
                 if col not in numerical_features

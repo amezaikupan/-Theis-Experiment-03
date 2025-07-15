@@ -5,6 +5,11 @@ from scipy.linalg import block_diag
 import sklearn.metrics as metrics
 import itertools
 from sklearn.model_selection import StratifiedShuffleSplit
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import ks_2samp
+from pygam import LinearGAM, s
+import numpy as np
 
 
 def log_loss(labels, pred, eps=1e-15):
@@ -23,9 +28,19 @@ def mse(true_vals, pred):
 # Define independent tests
 # Rewrite: they have the same parameter  
 def levene(residual, n_samples_per_task):
+ 
+    residual = residual.ravel()
+
+
     num_tasks = len(n_samples_per_task)
     task_boundary = np.concatenate(([0], np.cumsum(n_samples_per_task)))
-    residual_boundary = [residual[task_boundary[i]:task_boundary[i+1], :] for i in range(num_tasks)]
+    # residual_boundary = [residual[task_boundary[i]:task_boundary[i+1], :] for i in range(num_tasks)]
+    residual_boundary = [
+        residual[task_boundary[i]:task_boundary[i+1]]
+        for i in range(num_tasks)
+    ]
+    # print(residual_boundary.shape)
+
     stat, pval = sp.stats.levene(*residual_boundary)
     # print("Stat, pval", stat, pval)
     return stat, pval
@@ -101,16 +116,36 @@ def split_train_valid(x, y, n_samples_per_task_list, valid_split=0.4):
     train_x, train_y, valid_x, valid_y = [], [], [], []
 
     for i in range(len(n_samples_per_task_list)):  # Means for each task
-        n_train_task = int((1 - valid_split) * n_samples_per_task_list[i])
+        start_idx, end_idx = task_boundaries[i], task_boundaries[i + 1]
+        x_task = x[start_idx:end_idx]
+        y_task = y[start_idx:end_idx]
 
-        train_x.append(x[task_boundaries[i] : task_boundaries[i] + n_train_task])
-        train_y.append(y[task_boundaries[i] : task_boundaries[i] + n_train_task])
+        indices = np.arange(len(x_task))
+        np.random.shuffle(indices)
+        x_task = x_task[indices]
+        y_task = y_task[indices]
 
-        valid_x.append(x[task_boundaries[i] + n_train_task : task_boundaries[i + 1]])
-        valid_y.append(y[task_boundaries[i] + n_train_task : task_boundaries[i + 1]])
+        n_train = int((1 - valid_split) * len(x_task))
 
-        n_samples_per_task_train_set.append(n_train_task)
-        n_samples_per_task_valid_set.append(n_samples_per_task_list[i] - n_train_task)
+        train_x.append(x_task[:n_train])
+        train_y.append(y_task[:n_train])
+
+        valid_x.append(x_task[n_train:])
+        valid_y.append(y_task[n_train:])
+
+        n_samples_per_task_train_set.append(n_train)
+        n_samples_per_task_valid_set.append(len(x_task) - n_train)
+
+        # n_train_task = int((1 - valid_split) * n_samples_per_task_list[i])
+
+        # train_x.append(x[task_boundaries[i] : task_boundaries[i] + n_train_task])
+        # train_y.append(y[task_boundaries[i] : task_boundaries[i] + n_train_task])
+
+        # valid_x.append(x[task_boundaries[i] + n_train_task : task_boundaries[i + 1]])
+        # valid_y.append(y[task_boundaries[i] + n_train_task : task_boundaries[i + 1]])
+
+        # n_samples_per_task_train_set.append(n_train_task)
+        # n_samples_per_task_valid_set.append(n_samples_per_task_list[i] - n_train_task)
 
     train_x = np.concatenate(train_x, axis=0)
     valid_x = np.concatenate(valid_x, axis=0)
@@ -203,6 +238,37 @@ def full_search(x,y,n_samples_per_task,
         x, y, n_samples_per_task, valid_split
     )
 
+
+    print ('GOO FULL SEARCH')
+
+    # plt.figure(figsize=(6, 3))
+    # sns.kdeplot(y, label='Y gốc', fill=True)
+    # sns.kdeplot(train_y, label='Train Y', fill=True)
+    # sns.kdeplot(valid_y, label='Validation Y', fill=True)
+    # plt.title('Phân phối biến đầu ra Y')
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.show()
+
+    # p_train = ks_2samp(y, train_y).pvalue
+    # p_valid = ks_2samp(y, valid_y).pvalue
+    # print(f"KS p-value (Y gốc vs Train Y) = {p_train}")
+    # print(f"KS p-value (Y gốc vs Validation Y) = {p_valid}")
+
+    # for i in range(train_x.shape[1]):
+    #     # plt.figure(figsize=(6, 3))
+    #     # sns.kdeplot(x[:, i], label='X gốc', fill=True)
+    #     # sns.kdeplot(train_x[:, i], label='Train', fill=True)
+    #     # sns.kdeplot(valid_x[:, i], label='Validation', fill=True)
+    #     # plt.title(f'Phân phối đặc trưng {i}')
+    #     # plt.legend()
+    #     # plt.tight_layout()
+    #     # plt.show()
+        
+    #     p_train = ks_2samp(x[:, i], train_x[:, i]).pvalue
+    #     p_valid = ks_2samp(x[:, i], valid_x[:, i]).pvalue
+    #     print(f"Feature {i}: KS p-value (X vs Train) = {p_train:.4f}, (X vs Valid) = {p_valid:.4f}")
+
     # Search 
     all_sets = []
     all_pvals = []
@@ -246,7 +312,6 @@ def full_search(x,y,n_samples_per_task,
                         accepted_sets.append(s)
                         accepted_loss.append(current_loss)
     else:
-        j = 0
 
         for i in range(1, rang.size + 1):
             for s in itertools.combinations(rang, i):
@@ -617,39 +682,11 @@ def full_search_poly(x,y,n_samples_per_task,
                 return_n_best=None,
                 is_classification_task = False):
     # Split data 
-    train_x, train_y, valid_x, valid_y, n_samples_per_task_train, n_samples_per_task_valid = split_train_valid_stratified(
+    train_x, train_y, valid_x, valid_y, n_samples_per_task_train, n_samples_per_task_valid = split_train_valid(
         x, y, n_samples_per_task, valid_split
     )
 
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    import numpy as np
-
-    # Set plot style
-    sns.set(style="whitegrid")
-
-    for i, (n_train, n_val) in enumerate(zip(n_samples_per_task_train, n_samples_per_task_valid)):
-        # Index ranges
-        train_start = sum(n_samples_per_task_train[:i])
-        train_end = train_start + n_train
-        valid_start = sum(n_samples_per_task_valid[:i])
-        valid_end = valid_start + n_val
-
-        # Extract target values
-        y_train_task = train_y[train_start:train_end]
-        y_valid_task = valid_y[valid_start:valid_end]
-
-        # Plot histogram + KDE
-        plt.figure(figsize=(6, 4))
-        sns.histplot(y_train_task, bins=30, kde=True, color="blue", label="Train", stat="density", alpha=0.6)
-        sns.histplot(y_valid_task, bins=30, kde=True, color="orange", label="Validation", stat="density", alpha=0.6)
-
-        plt.title(f"Task {i} - Label Distribution (Regression)")
-        plt.xlabel("Target Value")
-        plt.ylabel("Density")
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+    print ('GOO POLY FULL SEARCH')
 
 
     from sklearn.preprocessing import PolynomialFeatures
@@ -683,32 +720,24 @@ def full_search_poly(x,y,n_samples_per_task,
             # print('subset test', s)
             pred = regr.predict(valid_x[:, currentIndex])[:, np.newaxis]
             residual = valid_y - pred
-            if s == ( 1,  3,  5,  6,  7,  9, 10):
 
+            print(residual.shape)
 
-                import matplotlib.pyplot as plt
-                # Plot histograms
-                mean_pred = np.mean(pred, axis=0)
-                task_boundaries = np.append(0, np.cumsum(n_samples_per_task_valid))
-                plt.figure(figsize=(12, 6))
-                for i in range(len(n_samples_per_task_valid)):
-                    domain_residual = residual[task_boundaries[i]:task_boundaries[i+1]]
-                    plt.hist(domain_residual, bins=30, alpha=0.5, edgecolor='black', label=f'Domain {i}')
+            pred = pred.ravel()
+            valid_y_flat = valid_y.ravel()
+            # residual = valid_y_flat - pred
 
-                plt.title('Residual Histogram by Domain' + str(list(currentIndex)) + "Mean_subset: " + str(mean_x) + " Mean_pred: " + str(mean_pred))
-                plt.xlabel('Residual')
-                plt.ylabel('Frequency')
-                plt.legend()
-                plt.grid(True)
-                plt.show()
+            print(residual.shape)
+            # if s == ( 1,  3,  5,  6,  7,  9, 10):
 
-                j += 1
 
             if use_hsic:
                 pval = hsic(residual, n_samples_per_task_valid)
             else:
                 # print('N samples per task valid', n_samples_per_task_valid)
                 stat, pval = levene(residual, n_samples_per_task_valid)
+
+            
 
             all_sets.append(s)
             all_pvals.append(pval)
@@ -894,5 +923,178 @@ def full_search_rf(x,y,n_samples_per_task,
 
     if return_n_best:
         return [np.array(s) for s in accepted_sets[-return_n_best:]]
+    else:
+        return np.array(best_subset)
+    
+from scipy.stats import wilcoxon
+
+
+def wilcoxon_one_vs_all(residuals, n_samples_per_task):
+    """
+    residuals: np.array of shape (N, )
+    n_samples_per_task: list of ints
+    Return: bonferroni-corrected min p-value across one-vs-all tests
+    """
+    residuals = residuals.flatten()
+    splits = np.split(residuals, np.cumsum(n_samples_per_task)[:-1])
+    pvals = []
+
+    for i, group in enumerate(splits):
+        rest = np.concatenate([splits[j] for j in range(len(splits)) if j != i])
+        try:
+            stat, p = wilcoxon(group, rest[:len(group)])  # truncate if necessary
+        except ValueError:
+            p = 1.0  # conservative fallback
+        pvals.append(p)
+
+    min_p = min(pvals)
+    corrected_p = min(1.0, len(pvals) * min_p)  # Bonferroni correction
+    return corrected_p
+
+
+import numpy as np
+import itertools
+
+def full_search_gam(x,y,n_samples_per_task, 
+                alpha, valid_split,
+                use_hsic=False,
+                return_n_best=None,
+                is_classification_task = False):
+    # Split data 
+    train_x, train_y, valid_x, valid_y, n_samples_per_task_train, n_samples_per_task_valid = split_train_valid(
+        x, y, n_samples_per_task, valid_split
+    )
+
+    from pygam import s, LinearGAM
+    from scipy.stats import ranksums
+
+    print ('GOOOO FULL SEARCH GAM')
+
+    all_sets = []
+    all_pvals = []
+    all_losses = []
+    best_subset = []
+    accepted_sets = []
+    accepted_loss = []
+    accepted_pvals = []
+
+    best_loss = 1e12
+
+    rang = np.arange(train_x.shape[1])
+
+    for i in range(1, rang.size + 1):
+        for subset in itertools.combinations(rang, i):
+
+            currentIndex = np.array(subset)
+            train_subset = train_x[:, currentIndex]
+            valid_subset = valid_x[:, currentIndex]
+
+            terms = sum([s(j) for j in range(len(currentIndex))], start=s(0))
+
+            gam = LinearGAM(terms)
+          
+
+            gam.fit(train_subset, train_y.flatten())
+            pred = gam.predict(valid_subset)
+            # [:, np.newaxis]
+
+            residual = valid_y.ravel() - pred.ravel()
+
+            # if use_hsic:
+            #     pval = hsic(residual, n_samples_per_task_valid)
+            # else:
+            #     _, pval_levene = levene(residual, n_samples_per_task_valid)
+
+            #     # # Wilcoxon One-vs-All
+            #     # pval_wilcoxon = wilcoxon_one_vs_all(residual, n_samples_per_task_valid)
+
+            #     # # Combine p-values
+            #     # pval = 2 * min(pval_levene, pval_wilcoxon)
+
+            #     pval = pval_levene
+
+            unique_envs = np.unique(n_samples_per_task_valid)
+            min_pval = 1.0
+            t = 0
+
+            for e in unique_envs:
+                mask_e = (n_samples_per_task_valid == e)
+                mask_rest = ~mask_e
+                if np.sum(mask_e) < 3 or np.sum(mask_rest) < 3:
+                    continue  
+
+                res_e = residual[mask_e]
+                res_rest = residual[mask_rest]
+
+                # === Wilcoxon one-vs-all (unpaired: use ranksums)
+
+                pval_wilcoxon = ranksums(residual[mask_e], residual[mask_rest]).pvalue
+
+                min_pval = min(pval_wilcoxon, min_pval)
+                t += 1
+
+                if len(unique_envs) == 2:
+                    break
+
+            min_pval = t*min_pval
+
+            _, pval_levene = levene(residual, n_samples_per_task_valid)
+
+
+            # min_pval = 2*min(min_pval, pval_levene )
+                
+
+            min_pval= pval_levene
+
+            all_sets.append(subset)
+            all_pvals.append(min_pval)
+
+            current_loss = np.mean((valid_y -  pred)**2)
+            all_losses.append(current_loss)
+
+            if min_pval > alpha:
+                if current_loss < best_loss:
+                    best_loss = current_loss
+                    best_subset = subset
+                    accepted_sets.append(subset)
+                    accepted_loss.append(current_loss)
+                    accepted_pvals.append(min_pval)
+
+
+    print('Number of accepted sets: ', len(accepted_sets))
+
+    all_pvals = np.array(all_pvals).flatten()
+    if len(accepted_sets) == 0:
+        sort_pvals = np.argsort(all_pvals)
+        idx_max = sort_pvals[-1]
+
+        if np.sum(all_pvals == all_pvals[idx_max]) > 1:
+
+            max_pval = all_pvals[idx_max]
+            tied_indices = np.where(all_pvals == max_pval)[0]
+            all_losses = np.array(all_losses).flatten()
+            tied_losses = all_losses[tied_indices]
+            idx_max = tied_indices[np.argmin(tied_losses)]
+            
+        best_subset = all_sets[idx_max]
+        best_loss = all_losses[idx_max]
+        accepted_sets.append(best_subset)
+
+    # === Write full log to file ===
+    with open(f"search_log/GAM_tasks_train_{len(n_samples_per_task_train)}_acc_sets_{len(accepted_sets)}.txt", "w") as f:
+        f.write("All Tested Subsets:\n")
+        for subset, p, l in zip(all_sets, all_pvals, all_losses):
+            f.write(f"Subset: {subset}, P-Value: {p:.23f}, Loss: {l:.23f}\n")
+
+        f.write("\nAccepted Subsets:\n")
+        for subset, l in zip(accepted_sets, accepted_loss):
+            f.write(f"Subset: {subset}, Loss: {l:.23f}\n")
+
+        f.write(f"\nBest Subset: {best_subset}, Best Loss: {best_loss:.23f}\n")
+        f.write(f"Accepted pvals: {accepted_pvals}\n")
+        f.write(f"Accepted sets: {accepted_sets}\n")
+
+    if return_n_best:
+        return [np.array(subset) for subset in accepted_sets[-return_n_best:]]
     else:
         return np.array(best_subset)

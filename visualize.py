@@ -202,14 +202,21 @@ def plot_scatter_on_all_tasks(csv_path, annot, set, output_dir="scatter-on-all-t
     mean_residual = np.mean(np.abs(df['prediction'] - df['true_label']))
     mean_rmse = np.sqrt(np.mean((df['prediction'] - df['true_label'])**2))
 
+    print(f'-----MEAN RESIDUAL: {mean_residual} --------------')
+
     n_samples_per_tasks = df['task'].value_counts().values
-    # print(n_samples_per_tasks)
+
 
     print(df['residual'].head(5))
     print(n_samples_per_tasks)
     test = 'levene'
     if test == 'levene':
-        pval = levene(df['residual'].to_numpy()[:, np.newaxis], n_samples_per_tasks)
+        grouped = df.groupby('task')['residual'].apply(list)
+        residual_boundary = [np.array(r) for r in grouped]
+
+        # Gọi kiểm định Levene đúng cách:
+        stat, pval = sp.stats.levene(*residual_boundary)
+                # pval = levene(df['residual'].to_numpy()[:, np.newaxis], n_samples_per_tasks)
     else: 
         pval = hsic(df['residual'].to_numpy()[:, np.newaxis], n_samples_per_tasks)
         
