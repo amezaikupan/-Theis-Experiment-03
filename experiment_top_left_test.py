@@ -19,11 +19,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--save_dir", default=f"Experiment_01_top_left"
 )
-parser.add_argument("--n_task", default=7)
+parser.add_argument("--n_task", default=10)
 parser.add_argument("--merge_dica", default=0)
 parser.add_argument("--n", default=4000)
-parser.add_argument("--p", default=6)
-parser.add_argument("--p_s", default=3)
+parser.add_argument("--p", default=12)
+parser.add_argument("--p_s", default=6)
 parser.add_argument("--p_conf", default=1)
 parser.add_argument("--eps", default=2)
 parser.add_argument("--g", default=1)
@@ -31,7 +31,7 @@ parser.add_argument("--lambd", default=0.5)
 parser.add_argument("--lambd_test", default=0.99)
 parser.add_argument("--use_hsic", default=0)
 parser.add_argument("--alpha_test", default=0.05)
-parser.add_argument("--n_repeat", default=10)
+parser.add_argument("--n_repeat", default=1)
 parser.add_argument("--max_l", default=100)
 parser.add_argument("--n_ul", default=100)
 args = parser.parse_args()
@@ -62,8 +62,8 @@ dataset = gauss_tl(n_task, n, p, p_s, p_conf, eps, g, lambd, lambd_test)
 n_ex = dataset.train["n_ex"]
 
 # Define test
-x_test = dataset.test["x_test"].astype(np.float32)
-y_test = dataset.test["y_test"].astype(np.float32)
+x_test = dataset.train["x_test"].astype(np.float32)
+y_test = dataset.train["y_test"].astype(np.float32)
 
 n_train_tasks = np.arange(2, n_task)
 n_repeat = int(args.n_repeat)
@@ -79,13 +79,13 @@ sgreedy = SGreedy().set_params({'alpha': 0.001, 'use_hsic': False})
 shat = SHat().set_params({'alpha': 0.001, 'use_hsic': False})
 shat_rf = SHat_RF().set_params({'alpha': 0.001, 'use_hsic': False})
 shat_poly = SHat_poly().set_params(degree=2, params={'alpha': 0.001, 'use_hsic': False})
-        
-methods = [pooling, shat_poly, shat, mean]
+causal = Causal().set_params()
+methods = [pooling, shat, sgreedy, mean, causal]
 
 results = {}
 methods_name = [method.name for method in methods]
 
-n_train_tasks = np.arange(n_train_tasks[0], n_train_tasks[-1] + 1, 1)
+n_train_tasks = np.arange(p_s + 1)
 print(n_train_tasks)
 color_dict, markers, legends = get_color_dict()
 
@@ -95,59 +95,44 @@ for m in methods_name:
     results[m] = np.zeros((n_repeat, n_train_tasks.size))
 
 for rep in range(n_repeat):
-    print("**************REP", rep)
+    print("**************REP", rep, "*******")
 
     x_train, y_train = dataset.resample(n_task, n)
 
     x_test = dataset.test["x_test"]
     y_test = dataset.test["y_test"]
 
-    for index, t in np.ndenumerate(n_train_tasks):
-        x_temp = x_train[0 : np.cumsum(n_ex)[t], :]
-        y_temp = y_train[0 : np.cumsum(n_ex)[t], :]
+    for index, n_ps in np.ndenumerate(n_train_tasks):
+    # for index, t in np.ndenumerate(n_train_tasks):
+        print("---- Round ", index)
+        # x_temp = x_train[0 : np.cumsum(n_ex)[t], :]
+        # y_temp = y_train[0 : np.cumsum(n_ex)[t], :]
 
         params = {
-            'n_samples_per_task': tuple(n_ex[task] for task in range(t)),
+            'n_samples_per_task': n_ex,
         }
 
-        print(t)
         for method in methods:
             print(method.name)
-            method.fit(x_temp, y_temp, params)
-            results[method.name][rep, index] = method.evaluate(x_test, y_test)
+
+            if method.name == 'causal':
+                method.fit(x_train, y_train, params)
+                results[method.name][rep, index] = method.evaluate(x_test, y_test)
+            else:
+                x_temp = x_train[:, n_ps:]
+                y_temp = y_train
+                method.fit(x_temp, y_temp, params)
+                results[method.name][rep, index] = method.evaluate(x_test[:, n_ps:], y_test)
         
-        # # start = get_memory_usage_gb()
-
-        # # ************** 1. Pooled *********************
-        # pooling = method.Pooling()
-        # pooling.fit(x_temp, y_temp)
-        # results["pool"][rep, index] = pooling.evaluate(x_test,y_test)
-
-        # # *************** 2. Mean ************
-
-        # error_mean = np.mean((y_test - np.mean(y_temp)) ** 2)
-        # results["mean"][rep, index] = error_mean
-
-        
-
-        # # ************ 5. True S **************
-        # lr_true_temp = linear_model.LinearRegression()
-        # lr_true_temp.fit(x_temp[:, true_s], y_temp)
-        # results["strue"][rep, index] = mse(lr_true_temp, x_test[:, true_s], y_test)
-
-        # del lr_true_temp
-        # gc.collect()
-
     del x_train, y_train, x_test, y_test
-#   gc.collect()
-#   end = get_memory_usage_gb()
-
 
 save_all = {}
 save_all["results"] = results
-print(results)
+
 save_all["plotting"] = [methods_name, color_dict, legends, markers]
-save_all["n_train_tasks"] = n_train_tasks
+
+# print('RANGE', np.arange(p_s + 1))
+save_all["n_train_tasks"] = n_train_tasks#np.arange(p_s + 1) 
 
 # Save pickle file
 file_name = ["tl_norm_", str(n_repeat), str(eps), str(g), str(lambd)]

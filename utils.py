@@ -5,13 +5,13 @@ from sklearn import linear_model
 def get_color_dict():
 
     colors = {
-        "pool": "red",
+        "pooling": "red",
         "lasso": "red",
         "shat": "green",
-        "sgreed": "green",
+        "sgreedy": "green",
         "ssharp": "green",
         "strue": "blue",
-        "cauid": "blue",
+        "causal": "blue",
         "causharp": "blue",
         "cauul": "blue",
         "mean": "black",
@@ -24,13 +24,13 @@ def get_color_dict():
     }
 
     markers = {
-        "pool": "o",
+        "pooling": "o",
         "lasso": "^",
         "shat": "o",
-        "sgreed": "^",
+        "sgreedy": "^",
         "strue": "^",
         "ssharp": "d",
-        "cauid": "d",
+        "causal": "*",
         "causharp": "h",
         "cauul": "^",
         "mean": "o",
@@ -44,15 +44,15 @@ def get_color_dict():
     }
 
     legends = {
-        "pool": r"$\beta^{CS}$",
+        "pooling": r"$\beta^{CS}$",
         "lasso": r"$\beta^{CS(\hat S Lasso)}$",
         "shat": r"$\beta^{CS(\hat S)}$",
         "ssharp": r"$\beta^{CS(\hat S \sharp)}$",
-        "strue": r"$\beta^{CS(cau)}$",
-        "cauid": r"$\beta^{CS(cau+,id)}$",
+        "causal": r"$\beta^{CS(cau)}$",
+        # "causal": r"$\beta^{CS(cau+,id)}$",
         "causharp": r"$\beta^{CS(cau\sharp)}$",
         "cauul": r"$\beta^{CS(cau\sharp UL)}$",
-        "sgreed": r"$\beta^{CS(\hat{S}_{greedy})}$",
+        "sgreedy": r"$\beta^{CS(\hat{S}_{greedy})}$",
         "mean": r"$\beta^{mean}$",
         "msda": r"$\beta^{mSDA}$",
         "mtl": r"$\beta^{MTL}$",

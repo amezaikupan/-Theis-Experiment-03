@@ -5,6 +5,7 @@ matplotlib
 seaborn
 scipy
 lightgbm
+pygam
 # torch
 
 # The following are standard libraries and do NOT need to be included:

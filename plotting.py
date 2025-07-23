@@ -31,7 +31,8 @@ def plot_tl(file_name, ylim=None):
     n_repeat = results[methods[0]].shape[0]
 
     # Get colors, markers, legends for all methods
-    color_dict, markers, legends = get_color_dict(methods)
+    # color_dict, markers, legends = get_color_dict(methods)
+    color_dict, markers, legends = get_color_dict()
 
     fig, ax = plt.subplots(1)
     offset = 0.0
@@ -52,7 +53,7 @@ def plot_tl(file_name, ylim=None):
             alpha=0.5,
         )
 
-    ax.set_xlabel(r"# of training tasks $T$", fontsize=15)
+    ax.set_xlabel(r"# of missing causal features", fontsize=15)
     ax.set_ylabel(r"$\log \widehat{\mathrm{MSE}}$", fontsize=15)
     ax.set_xticks(n_train_tasks)
     ax.set_xticklabels([f"${t}$" for t in n_train_tasks], fontsize=15)

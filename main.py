@@ -18,8 +18,6 @@ import visualize
 
 # ************** For Life Expectancy data *****************
 file_name = 'kc_house_data'
-# '_outliers_dect_iqr'
-# _outliers_dect'
 k = 10
 
 # Mode:
@@ -44,18 +42,10 @@ data['renovation_age'] = data.apply(
 )
 
 data = data.drop(columns=['yr_sold', 'yr_built', 'yr_renovated', 'date'])
-# print(len(data))
-
-print("Before data leng", len(data))
-
-print(data.columns)
 numerical_features = ['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'view', 'condition', 'grade', 'sqft_above', 'sqft_basement', 'waterfront','sqft_living15', 'sqft_lot15', 'house_age', 'renovation_age']#, 'lat', 'long']
 categorical_features = []
 task_division = ['zipcode']
 target = 'price'
-
-print(data['zipcode'].value_counts().sort_values(ascending=False).head(10))
-
 data = data[data['house_age'] >= 0]
 
 top_zip_codes = [98103, 98038, 98115, 98052, 98117, 98042, 98034, 98118, 98023, 98006, 98133, 98059, 98058, 98155, 98074]
@@ -69,10 +59,6 @@ with DataProcessor(data=data, task_division=task_division, target=target, numeri
         # dataset.plot_feature_target_grid()
         # dataset.data = dataset.data.iloc[:, column_mask]
         dataset.train_test_split()
-
-        print('SUCESS')
-        # print(dataset.data.iloc[0])
-#     
         mean = Mean()
 
         pooling = Pooling()
@@ -96,19 +82,11 @@ with DataProcessor(data=data, task_division=task_division, target=target, numeri
         shat_GAM = SHat_GAM().set_params({'delta': 0.001, 'use_hsic': False})
         sgreedy_GAM = SGreedy_GAM().set_params({'delta': 0.001, 'use_hsic': False})
         
-
-
-        # nn = Pooling_NN()
-# 
         methods = [mean, pooling, shat, sgreedy,
                     pooling_rf, shat_rf, sgreedy_rf, 
                     pooling_lgbm,shat_lgbm, sgreedy_lgbm, 
                     pooling_poly, shat_poly, sgreedy_poly, 
                     pooling_gam, shat_GAM, sgreedy_GAM]
-        # sgreedy_lgbm, pooling_poly, shat_poly,
-        # pooling, shat,sgreedy, pooling_rf,  shat_rf, sgreedy_rf, pooling_lgbm, 
-        # methods = [pooling]
-        # methods = [pooling, shat, pooling_poly, shat_poly, pooling_gam, shat_GAM]
    
         experiment = Experiment(dataset, methods)
 

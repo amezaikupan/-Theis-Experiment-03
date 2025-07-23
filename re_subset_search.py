@@ -318,7 +318,6 @@ def full_search(x,y,n_samples_per_task,
                     accepted_loss.append(current_loss)
                     accepted_pvals.append(pval)
 
-    print('Pooling - S_hat - Number of accepted sets: ', len(accepted_sets))
 
     all_pvals = np.array(all_pvals).flatten()
     if len(accepted_sets) == 0:
@@ -339,7 +338,11 @@ def full_search(x,y,n_samples_per_task,
         accepted_sets.append(best_subset)
 
     # === Write full log to file ===
-    with open(f"search_log/pooling_shat_tasks_train_{len(n_samples_per_task_train)}_acc_sets_{len(accepted_sets)}.txt", "w") as f:
+    import os
+
+    os.makedirs('search_log', exist_ok=True)
+    
+    with open(f"search_log/shat_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}.txt", "w") as f:
         f.write("All Tested Subsets:\n")
         for s, p, l in zip(all_sets, all_pvals, all_losses):
             f.write(f"Subset: {s}, P-Value: {p:.23f}, Loss: {l:.23f}\n")
@@ -352,6 +355,7 @@ def full_search(x,y,n_samples_per_task,
         f.write(f"Accepted pvals: {accepted_pvals}\n")
         f.write(f"Accepted sets: {accepted_sets}\n")
 
+    print("SHAT BEST SUBSET", best_subset)
     if return_n_best:
         return [np.array(s) for s in accepted_sets[-return_n_best:]]
     else:
@@ -500,7 +504,10 @@ def greedy_search(X, y, n_samples_per_task, alpha,
         best_loss = accepted_loss[-1] if accepted_loss else 0
 
     # === Write full log to file ===
-    with open(f"search_log/greedy_tasks_train_{len(n_samples_per_task_train)}_acc_sets_{len(accepted_sets)}.txt", "w") as f:
+    import os
+
+    os.makedirs('search_log', exist_ok=True)
+    with open(f"search_log/greedy_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}.txt", "w") as f:
         f.write("Greedy Search Log\n")
         f.write("=================\n\n")
         
@@ -525,6 +532,7 @@ def greedy_search(X, y, n_samples_per_task, alpha,
         f.write(f"Alpha threshold: {alpha}\n")
         f.write(f"Classification task: {is_classification_task}\n")
 
+    print("SGREEDY ACCEPTED SET", accepted_subset)
     return np.array(accepted_subset)
 
 

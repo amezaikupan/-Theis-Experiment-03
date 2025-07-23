@@ -51,15 +51,6 @@ class Pooling(Method):
     def fit(self, X_train, y_train, params):
         self.model = linear_model.LinearRegression()
         self.model.fit(X_train, y_train)
-
-        from sklearn.ensemble import GradientBoostingRegressor
-        from sklearn.inspection import partial_dependence, PartialDependenceDisplay
-        import matplotlib.pyplot as plt
-
-        model = GradientBoostingRegressor().fit(X_train, y_train)
-        PartialDependenceDisplay.from_estimator(model, X_train, features=[0, 1, 2,3,4,5,6,7])
-        plt.show()
-
         return self
 
     def predict(self, X):
@@ -74,6 +65,47 @@ class Pooling(Method):
     def evaluate(self, X_test, y_test):
         return np.sqrt(np.mean((self.model.predict(X_test) - y_test)**2))
     
+class Causal(Method):
+    def __init__(self, name='causal'):
+        super().__init__(name)
+    
+    def set_params(self, params=None):
+        default_params = {
+            'p': 3
+        }
+
+        if params is not None:
+            merged_params = {**default_params, **params}
+        else: 
+            merged_params = default_params
+
+        self.params = merged_params
+        self.p = self.params['p']
+        return self
+    
+    def fit(self, X_train, y_train, params):
+        X_train = X_train[:, :self.p]
+        self.model = linear_model.LinearRegression()
+        self.model.fit(X_train, y_train)
+        return self
+
+    def predict(self, X):
+        X = X[:, :self.p]
+        return self.model.predict(X)
+    
+    def cal_residuals_list(self, X, y):
+        X = X[:, :self.p]
+        return self.model.predict(X) - y
+    
+    def cal_loss_list(self, X, y):
+        X = X[:, :self.p]
+        return (self.model.predict(X) - y)**2
+    
+    def evaluate(self, X_test, y_test):
+        X_test = X_test[:, :self.p]
+        return np.sqrt(np.mean((self.model.predict(X_test) - y_test)**2))
+
+
 # Shat
 class SHat(Method): 
     def __init__(self, name='shat'):
