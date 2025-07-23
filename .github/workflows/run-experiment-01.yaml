@@ -4,7 +4,7 @@ name: Run HSIC
 on:
   push:
     branches:
-      - main  # Triggers when you push to the main branch
+      - tn  # Triggers when you push to the main branch
 
 jobs:
   run-python:
