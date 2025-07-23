@@ -67,7 +67,7 @@ class Experiment:
                 self.results[method.name] = []
 
         # Save results to CSV
-        self._save_results(annot)
+        # self._save_results(annot)
         return self
 
     def _run_once(self, annot, k=3):
@@ -230,7 +230,13 @@ class Experiment:
 
     def _save_results(self, annot):
         import pandas as pd
-        output_file = f"logs/{annot}.csv"
+        dir_path = 'logs'
+        import os 
+        os.makedirs(dir_path, exist_ok=True)
+
+        output_file = f"{dir_path}/{annot}.csv"
+
+
         df = pd.DataFrame(self.all_results)
         df.to_csv(output_file, index=False)
         print(f"\n✅ Results saved to {output_file}")

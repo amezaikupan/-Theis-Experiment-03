@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np 
+from scipy import stats
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import gc
 import warnings
@@ -17,44 +18,29 @@ class DataProcessor:
         print(f'Number of rows: {len(data)}')
 
         print('\n **** PROCESS NA **** ')
-        print('Before processing data:')
-        print(np.sum(data.isna()))
+        # print('Before processing data:')
         cols_removed = self.process_na_cols()
-        
         self.numerical_features = [feat for feat in numerical_features if feat not in cols_removed]
         self.categorical_features = [col for col in self.data.columns
                 if col not in numerical_features
                 and col not in task_division
                 and col != target]
         
-        print("Columns removed due to high NA percentage:")
-        print(cols_removed)
+        # print("Columns removed due to high NA percentage:")
+        # print(cols_removed)
         self.process_na_rows()
+        print("Complete processing NA!")
 
-        print('After processing data:')
-        print(np.sum(self.data.isna()))
-        print(f"Number of rows: {len(self.data)}")
+        # print('\n **** PROCESS CATEGORICAL & NUMERICAL COLUMNS **** ')
+        # print(f"Number of columns before processing: {len(self.data.columns)}")
+        # self.process_features()
+        # print(f"Number of columns after processing: {len(self.data.columns)}")
+        # # Remove outliners 
 
+        # self.log_scale_features(self.data)
 
-        print('\n **** PROCESS CATEGORICAL & NUMERICAL COLUMNS **** ')
-        data_features = self.numerical_features + self.categorical_features
-        # self.data  = 
-        
-        # scaler = StandardScaler()
-        # self.data[numerical_features] = scaler.fit_transform(self.data[numerical_features])
-
-        print("Before processing categorical & numerical columns")
-        print(f"Number of columns: {len(self.data.columns)}")
-        self.process_features()
-        print("After processing categorical & numerical columns")
-        print(f"Number of columns: {len(self.data.columns)}")
-        print(f"Nan value {np.sum(self.data.isna())}")
-
-        # Remove outliners 
-        self.clip_extreme_values(self.target)
-        
-
-        # self.data
+        print("\n*** Divide tasks ***")
+        # self.clip_extreme_values(self.target)
         self.task_division = task_division
         self.tasks = self._task_division()
         self.n_tasks = len(self.tasks)
@@ -148,10 +134,6 @@ class DataProcessor:
         groups = self.data.groupby(self.task_division)
         for name, group in groups:
             tasks[name] = group.copy().reset_index(drop=True).drop(columns=self.task_division)
-            # print("TASK NAN", np.sum(tasks[name].isna()))
-            # print("TASK", len(tasks[name].columns) )
-            # print("TASK LENGTH", len(tasks[name]))
-            # print("ROW WITH TASK NAN", tasks[name][tasks[name].isna().any(axis=1)])
         return tasks 
     
     def process_na_cols(self, remove_col_na_thres = 0.4):
@@ -185,102 +167,133 @@ class DataProcessor:
             # Drop any row with missing values
             self.data = self.data.dropna(how="any")
 
-
-    def clip_extreme_values(self, feature, lower_pct=0.25, upper_pct=0.75):
-        lower = self.data[feature].quantile(lower_pct)
-        upper = self.data[feature].quantile(upper_pct)
-        return self.data[(self.data[feature] >= lower) & (self.data[feature] <= upper)]    
-
-    def process_features(self):
-        # PROCESS NUMERICAL FEATURES
-        # Coerce to numeric with NaNs for non-convertibles
-        numeric_data = self.data[self.numerical_features].apply(pd.to_numeric, errors='coerce')
-        print("____________numeric data ______________")
-        print(numeric_data)
-
-        # print("PROCESS_FEATUREs", np.sum(numeric_data.isna()))
-        # print(len(numeric_data))
-
-        # Ensure values are >= -1 (log1p is undefined for values < -1)
-        # for col in self.numerical_features:
-        #     print(numeric_data[col].value_counts())
-        #     if (numeric_data[col] < -1).any():
-        #         print(f"Skipping column {col}: contains values < -1")
-        #         continue
-        #     numeric_data[col] = np.log1p(numeric_data[col] + 0.00000001)
-
-        scaler = StandardScaler()
-        # scaler = MinMaxScaler()
-
-        numeric_data = pd.DataFrame(scaler.fit_transform(numeric_data), columns=self.numerical_features)      
-        numeric_data.index = self.data.index
-            
-        # PROCESS CATEGORICAL FEATURES
-        if len(self.categorical_features) == 0:
-            categorical_data = None 
-        else: 
-            categorical_data = pd.get_dummies(self.data[self.categorical_features], drop_first=True)
-            # print("PROCESS CATEGORICAL FEATURES", np.sum(categorical_data.isna()))
-            # print(len(categorical_data))
-            categorical_data.index = self.data.index
-
-        task_division_data = self.data[self.task_division]        
-        target_data = self.data[self.target]
-        # MERGE TO DATA
-        if categorical_data is not None:
-            self.data = pd.concat([numeric_data, categorical_data, task_division_data, target_data], axis=1)
-        else:
-            self.data = pd.concat([numeric_data, task_division_data, target_data], axis=1)
-
-        print("^^^^^^^^^^^ process_features ^^^^^^^^^^^^^")
-        print(self.data.head(1))
-    
-    def train_test_split(self, test_split=0.3, random_state=42):
+    def z_score_outliers(self, data, threshold=3):
         """
-        Split tasks into train and test sets based on task division values.
-        The latter (biggest combination values) go to test set.
+        Detect outliers using Z-score method
         
         Parameters:
-        test_split: float, proportion of tasks to use for testing
-        random_state: int, random seed for reproducibility
+        threshold: Z-score threshold (default: 3)
         
         Returns:
-        train_tasks: dict, training tasks
-        test_tasks: dict, testing tasks
+        Dictionary with outlier indices for each column
         """
-        # Get all task names (keys) and sort them
-        # This ensures consistent ordering for the "latter" tasks
-        task_names = list(self.tasks.keys())
+        outliers = {}
         
-        # Sort task names to get consistent ordering
-        # For tuples (Year, Gender), this will sort lexicographically
-        # task_names_sorted = sorted(task_names)
+        for col in self.numerical_features:
+            z_scores = np.abs(stats.zscore(data[col].dropna()))
+            outlier_indices = np.where(z_scores > threshold)[0]
+            outliers[col] = outlier_indices
+            
+        return outliers
+    
+    def iqr_outliers(self, data):
+        outliers = {}
+        for col in self.numerical_features:
+            Q1 = data[col].quantile(0.25)
+            Q3 = data[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - 3.0 * IQR
+            upper_bound = Q3 + 3.0 * IQR
+            
+            outlier_indices = data[(data[col] < lower_bound) | 
+                                (data[col] > upper_bound)].index.tolist()
+            outliers[col] = outlier_indices
+        return outliers
 
-        # Or randomize  
+    def remove_outliers(self, data, method='zscore', columns=None):
+        df_clean = data.copy()
+        if columns is None:
+            columns = df_clean.select_dtypes(include='number').columns
+
+        outlier_indices = set()
+        
+        if method == 'iqr':
+            outliers = self.iqr_outliers(df_clean)
+        elif method == 'zscore':
+            outliers = self.z_score_outliers(df_clean)
+        else:
+            raise ValueError(f"Unknown method '{method}'")
+        
+        for col in columns:
+            if col in outliers:
+                outlier_indices.update(outliers[col])
+        
+        valid_indices = df_clean.index.intersection(outlier_indices)
+        df_clean = df_clean.drop(index=valid_indices)
+
+        print(f"Original dataset size: {len(data)}")
+        print(f"Cleaned dataset size: {len(df_clean)}")
+        print(f"Removed {len(valid_indices)} outliers ({len(valid_indices)/len(data)*100:.2f}%)")
+        
+        return df_clean
+
+    def log_scale_features(self, data):
+        data = data.copy()
+        for column in data.select_dtypes(include='number').columns:
+            data[column] = np.log1p(data[column])
+        return data
+
+    def train_test_split(self, test_split=0.3, random_state=42):
+        task_names = list(self.tasks.keys())
+        task_names_sorted = task_names.copy()
+        
         import random
-        task_names_sorted = task_names
-        random.shuffle(task_names_sorted) 
+        random.seed(random_state)
+        random.shuffle(task_names_sorted)
         
-        # Calculate split point
         n_tasks = len(task_names_sorted)
-        n_test_tasks = max(1, int(n_tasks * test_split))  # Ensure at least 1 test task
+        n_test_tasks = max(1, int(n_tasks * test_split))
         
-        # Split: latter tasks go to test
         train_task_names = task_names_sorted[:-n_test_tasks]
         test_task_names = task_names_sorted[-n_test_tasks:]
         
-        # Create train and test task dictionaries
         train_tasks = {name: self.tasks[name] for name in train_task_names}
         test_tasks = {name: self.tasks[name] for name in test_task_names}
         
-        # print(f"Train tasks: {train_task_names}")
-        # print(f"Test tasks: {test_task_names}")
+        # Fit scaler
+        X_train_all = np.vstack([
+            task.drop(columns=[self.target]).values
+            for task in train_tasks.values()
+        ])
+        scaler = StandardScaler()
+        scaler.fit(X_train_all)
+        
+        # Process train tasks
+        for name, task in train_tasks.items():
+            # Remove outliers 
+            task = self.remove_outliers(task)
 
-        # print(train_tasks)
+            # Log transform and restore target
+            log_data = self.log_scale_features(task.drop(columns=[self.target]))
+            log_data[self.target] = task[self.target]
+            train_tasks[name] = log_data
+            
+            # Standard scale
+            X = task.drop(columns=[self.target])
+            y = task[self.target]
+            X_scaled = scaler.transform(X)
+            X_scaled_df = pd.DataFrame(X_scaled, columns=X.columns, index=task.index)
+            task_scaled = X_scaled_df.copy()
+            task_scaled[self.target] = y
+
+        # Process test tasks
+        for name, task in test_tasks.items():
+            # Log transform and restore target 
+            log_data = self.log_scale_features(task_scaled.drop(columns=[self.target]))
+            log_data[self.target] = task_scaled[self.target]
+            test_tasks[name] = log_data
+
+            # Standard scale
+            X = task.drop(columns=[self.target])
+            y = task[self.target]
+            X_scaled = scaler.transform(X)
+            X_scaled_df = pd.DataFrame(X_scaled, columns=X.columns, index=task.index)
+            task_scaled = X_scaled_df.copy()
+            task_scaled[self.target] = y
 
         self.train_tasks = train_tasks
         self.test_tasks = test_tasks
-        
         return train_tasks, test_tasks
     
     def top_k_train_cv(self, k, random_order=False, random_state=42):

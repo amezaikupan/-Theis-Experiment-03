@@ -69,8 +69,10 @@ with DataProcessor(data=data, task_division=task_division, target=target, numeri
         # dataset.plot_feature_target_grid()
         # dataset.data = dataset.data.iloc[:, column_mask]
         dataset.train_test_split()
+
+        print('SUCESS')
         # print(dataset.data.iloc[0])
-# 
+#     
         mean = Mean()
 
         pooling = Pooling()
@@ -121,10 +123,3 @@ with DataProcessor(data=data, task_division=task_division, target=target, numeri
         for method in methods:
                 visualize.plot_scatter_on_all_tasks(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method=method.name, point_size=10, set='train')
                 visualize.plot_scatter_on_all_tasks(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method=method.name, point_size=10, set='test')
-
-
-# #         # visualize.plot_per_sample_results(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot)
-# #         # visualize.plot_per_sample_results(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method='pooling', focus_task='(98059,)')
-# #         # # visualize.plot_per_sample_results(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method='pooling', focus_task='(98058,)')
-# #         # # # visualize.plot_per_sample_results(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method='pooling', focus_task='(98155,)')
-# #         # # # visualize.plot_per_sample_results(csv_path=f"per_sample_results/{file_annot}.csv", annot=file_annot, focus_method='pooling', focus_task='(98006,)')
