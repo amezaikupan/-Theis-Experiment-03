@@ -202,12 +202,12 @@ class DataProcessor:
         # print(len(numeric_data))
 
         # Ensure values are >= -1 (log1p is undefined for values < -1)
-        for col in self.numerical_features:
-            print(numeric_data[col].value_counts())
-            if (numeric_data[col] < -1).any():
-                print(f"Skipping column {col}: contains values < -1")
-                continue
-            numeric_data[col] = np.log1p(numeric_data[col] + 0.00000001)
+        # for col in self.numerical_features:
+        #     print(numeric_data[col].value_counts())
+        #     if (numeric_data[col] < -1).any():
+        #         print(f"Skipping column {col}: contains values < -1")
+        #         continue
+        #     numeric_data[col] = np.log1p(numeric_data[col] + 0.00000001)
 
         scaler = StandardScaler()
         # scaler = MinMaxScaler()

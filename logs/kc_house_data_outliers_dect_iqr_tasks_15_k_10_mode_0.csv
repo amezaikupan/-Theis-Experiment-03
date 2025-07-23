@@ -1,7 +1,0 @@
-leave_out_task,n_tasks,method,loss,selected_features,split
-"(98059,)",10,shat-gam,298.41719239493904,"['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'view', 'grade', 'sqft_above', 'waterfront']",
-"(98155,)",10,shat-gam,240.96685604459105,"['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'view', 'grade', 'sqft_above', 'waterfront']",
-"(98058,)",10,shat-gam,258.9612812611635,"['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'view', 'grade', 'sqft_above', 'waterfront']",
-"(98074,)",10,shat-gam,253.92803854875217,"['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'view', 'grade', 'sqft_above', 'waterfront']",
-"(98006,)",10,shat-gam,271.7178863623426,"['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'view', 'grade', 'sqft_above', 'waterfront']",
-training_set,10,shat-gam,267.0807393226381,,train

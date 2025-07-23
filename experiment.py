@@ -116,11 +116,18 @@ class Experiment:
                 for i in range(n_samples):
                     pred = float(predictions_train[offset + i])
                     true = float(y_train[offset + i])
+                    res = residuals_train[offset + i]
 
-                    print(residuals_train[offset + i], type(residuals_train[offset + i]))
+                    # print(residuals_train[offset + i].shape)
 
-                    res = float(residuals_train[offset + i])
-                    
+                    # res = float(residuals_train[offset + i])
+                    if isinstance(res, (np.ndarray, list)):
+                        if np.size(res) == 1:
+                            res = float(res)
+                        else:
+                            raise ValueError(f"Expected scalar residual, got {res} of shape {np.shape(res)}")
+                    else:
+                        res = float(res)
                     per_sample_records.append({
                         "method": method.name,
                         "task": task_name,

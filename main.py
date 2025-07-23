@@ -10,7 +10,7 @@
 import pandas as pd 
 import numpy as np
 from data_processor import DataProcessor
-from method import SGreedy, Pooling, Mean, SHat, CLF_Pool, Mode, Pooling_RF, Pooling_LGBM, Pooling_NN, Pooling_poly, SHat_RF, SHat_poly, SHat_GAM, Pooling_GAM
+from method import SGreedy, Pooling, Mean, SHat, CLF_Pool, Mode, Pooling_RF, Pooling_LGBM, Pooling_NN, Pooling_poly, SHat_RF, SHat_poly, SHat_GAM, Pooling_GAM, SGreedy_RF, SHat_LGBM, SGreedy_LGBM, SHat_poly,SGreedy_poly, SGreedy_GAM
 from experiment import Experiment
 import matplotlib.pyplot as plt 
 np.random.seed(1234)
@@ -26,9 +26,6 @@ k = 10
 #       - 0: Train on k domains, test on each of the rest.
 #       - 1: Leave-one-out train 
 mode = 0
-
-
-# column_mask = [2,3,9]
 
 data = pd.read_csv(f'{file_name}.csv', index_col=False).drop(columns=['id', 'lat', 'long'])
 # Convert date string to datetime
@@ -50,11 +47,7 @@ data = data.drop(columns=['yr_sold', 'yr_built', 'yr_renovated', 'date'])
 # print(len(data))
 
 print("Before data leng", len(data))
-# data = remove_outliers_percentile(data, column='sqft_basement')
-# data = remove_outliers_percentile(data, column='sqft_lot')
 
-# print("After clipping length", len(data))
-# lasdkjg
 print(data.columns)
 numerical_features = ['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'view', 'condition', 'grade', 'sqft_above', 'sqft_basement', 'waterfront','sqft_living15', 'sqft_lot15', 'house_age', 'renovation_age']#, 'lat', 'long']
 categorical_features = []
@@ -78,22 +71,41 @@ with DataProcessor(data=data, task_division=task_division, target=target, numeri
         dataset.train_test_split()
         # print(dataset.data.iloc[0])
 # 
-        pooling = Pooling()
-        pooling_non_lin_1 = Pooling_RF()
-        pooling_non_lin_2 = Pooling_LGBM()
-        pooling_poly = Pooling_poly().set_params(degree=2)
         mean = Mean()
-        sgreedy = SGreedy().set_params({'alpha': 0.001, 'use_hsic': False})
+
+        pooling = Pooling()
         shat = SHat().set_params({'alpha': 0.001, 'use_hsic': False})
+        sgreedy = SGreedy().set_params({'alpha': 0.001, 'use_hsic': False})
+
+        pooling_rf = Pooling_RF()
         shat_rf = SHat_RF().set_params({'alpha': 0.001, 'use_hsic': False})
-        shat_poly = SHat_poly().set_params(degree=2, params={'alpha': 0.001, 'use_hsic': False})
-        
-        shat_GAM = SHat_GAM().set_params({'delta': 0.001, 'use_hsic': False})
+        sgreedy_rf = SGreedy_RF().set_params({'alpha': 0.001, 'use_hsic': False})
+
+
+        pooling_lgbm = Pooling_LGBM()
+        shat_lgbm = SHat_LGBM().set_params({'delta': 0.001, 'use_hsic': False})
+        sgreedy_lgbm = SGreedy_LGBM().set_params({'delta': 0.001, 'use_hsic': False})
+
+        pooling_poly = Pooling_poly().set_params(degree=2)
+        shat_poly = SHat_poly().set_params(degree=2)
+        sgreedy_poly = SGreedy_poly().set_params(degree=2)
+
         pooling_gam = Pooling_GAM()
+        shat_GAM = SHat_GAM().set_params({'delta': 0.001, 'use_hsic': False})
+        sgreedy_GAM = SGreedy_GAM().set_params({'delta': 0.001, 'use_hsic': False})
+        
+
+
         # nn = Pooling_NN()
 # 
-        methods = [pooling, shat, sgreedy, mean, pooling_non_lin_1,pooling_non_lin_2, pooling_poly,  shat_poly, pooling_gam, shat_GAM,  shat_rf]
-        # methods = [shat_GAM]
+        methods = [mean, pooling, shat, sgreedy,
+                    pooling_rf, shat_rf, sgreedy_rf, 
+                    pooling_lgbm,shat_lgbm, sgreedy_lgbm, 
+                    pooling_poly, shat_poly, sgreedy_poly, 
+                    pooling_gam, shat_GAM, sgreedy_GAM]
+        # sgreedy_lgbm, pooling_poly, shat_poly,
+        # pooling, shat,sgreedy, pooling_rf,  shat_rf, sgreedy_rf, pooling_lgbm, 
+        # methods = [pooling]
         # methods = [pooling, shat, pooling_poly, shat_poly, pooling_gam, shat_GAM]
    
         experiment = Experiment(dataset, methods)

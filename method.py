@@ -1,17 +1,15 @@
 
 import numpy as np
 from sklearn import linear_model
-from sklearn.ensemble import RandomForestRegressor 
-from lightgbm import LGBMRegressor
-from sklearn.neural_network import MLPRegressor
 from lightgbm import LGBMRegressor
 from pygam import LinearGAM, s
-import numpy as np
+from sklearn.ensemble import RandomForestRegressor 
+from sklearn.neural_network import MLPRegressor
 from sklearn.metrics import accuracy_score
+import re_subset_search as subset_search 
+from scipy import stats
 
-import os 
-import sys 
-import re_subset_search as subset_search  # Assuming subset_search is a custom module for model fitting and evaluation
+ # Assuming subset_search is a custom module for model fitting and evaluation
 
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import *  # Assuming mse is a custom utility function for evaluation metrics
@@ -43,78 +41,40 @@ class Method:
     def predict(self, X):
         return np.random.rand()
     
-class SGreedy(Method):
-    def __init__(self, name='sgreedy'):
+
+## ********** POOLING ************
+
+class Pooling(Method):
+    def __init__(self, name='pooling'):
         super().__init__(name)
-        self.params = None
-        
-    def set_params(self, params=None):
-        default_params = {
-            'delta': 0.01,
-            'valid_split': 0.4,
-            'is_classification_task': False, 
-            'mycode': True,
-        }
-
-        # Merge with default params
-        if params is not None:
-            merged_params = {**default_params, **params}
-        else:
-            merged_params = default_params
-
-        self.params = merged_params
-        return self
     
     def fit(self, X_train, y_train, params):
-        # Implement fitting logic for SGreedy
-        # y_train = np.log1p(y_train)  # Log transform the target variable
+        self.model = linear_model.LinearRegression()
+        self.model.fit(X_train, y_train)
 
-        if self.params['mycode']:
-            s_greedy = subset_search.greedy_search(
-                X_train, y_train, 
-                alpha=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_samples_per_task=params['n_samples_per_task']
-                # is_classification_task=self.params['is_classification_task']
-            )
-        else:
-            s_greedy = subset_search.greedy_subset(
-                X_train, y_train, 
-                delta=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_ex=params['n_samples_per_task']
-                # is_classification_task=self.params['is_classification_task']
-            )
+        from sklearn.ensemble import GradientBoostingRegressor
+        from sklearn.inspection import partial_dependence, PartialDependenceDisplay
+        import matplotlib.pyplot as plt
 
-        if(self.params['is_classification_task']):
-            model = linear_model.LogisticRegression()
-            model.fit(X_train[:, s_greedy], y_train)
-        else:
-            model = linear_model.LinearRegression()
-            model.fit(X_train[:, s_greedy], y_train)
+        model = GradientBoostingRegressor().fit(X_train, y_train)
+        PartialDependenceDisplay.from_estimator(model, X_train, features=[0, 1, 2,3,4,5,6,7])
+        plt.show()
 
-        # print("Model coefficient", model.coef_)
-        self.model = model  # Store the fitted model
-        self.selected_features = s_greedy  # Store selected features
         return self
-    
+
     def predict(self, X):
-        return self.model.predict(X[:, self.selected_features])
+        return self.model.predict(X)
     
     def cal_residuals_list(self, X, y):
-        return self.model.predict(X[:, self.selected_features]) - y
+        return self.model.predict(X) - y
     
     def cal_loss_list(self, X, y):
-        return (self.model.predict(X[:, self.selected_features]) - y)**2
-
+        return (self.model.predict(X) - y)**2
+    
     def evaluate(self, X_test, y_test):
-        if(self.params['is_classification_task']):
-            return accuracy_score(y_test, self.model.predict(X_test[:, self.selected_features]))
-        else:
-            # return mae(self.model, X_test[:, self.selected_features], y_test)
-            # return mse_2(np.expm1(self.model.predict(X_test[:, self.selected_features])), y_test)
-            return np.sqrt(mse(self.model, X_test[:, self.selected_features], y_test))
-
+        return np.sqrt(np.mean((self.model.predict(X_test) - y_test)**2))
+    
+# Shat
 class SHat(Method): 
     def __init__(self, name='shat'):
         super().__init__(name)
@@ -130,7 +90,6 @@ class SHat(Method):
             'mycode': True
         }
 
-        # Merge with default params
         if params is not None:
             merged_params = {**default_params, **params}
         else: 
@@ -140,8 +99,6 @@ class SHat(Method):
         return self
     
     def fit(self, X_train, y_train, params):
-        # Implement fitting logic for SGreedy
-        # y_train = np.log1p(y_train)
 
         if self.params['mycode']:
             self.lasso_mask = None
@@ -151,15 +108,13 @@ class SHat(Method):
                     X_train, y_train, 
                     alpha=self.params['delta'],
                     valid_split=self.params['valid_split'],
-                    n_samples_per_task_list=params['n_samples_per_task'], 
+                    n_samples_per_task=params['n_samples_per_task'], 
                     use_hsic=self.params['use_hsic']
-                    # is_classification_task = self.params['is_classification_task']
                 )
             else:
                 print("--Use Lasso--")
                 lasso_mask = lasso_binary_search_alpha(X_train, y_train)
                 self.lasso_mask = lasso_mask
-                print(f"Lasso Mask: {lasso_mask}")
                 X_train = X_train[:, lasso_mask]
                 
                 s_hat = subset_search.full_search(
@@ -179,7 +134,7 @@ class SHat(Method):
                     X_train, y_train, 
                     delta=self.params['delta'],
                     valid_split=self.params['valid_split'],
-                    n_samples_per_task_list=params['n_samples_per_task'], 
+                    n_samples_per_task=params['n_samples_per_task'], 
                     use_hsic=self.params['use_hsic']
                     # is_classification_task = self.params['is_classification_task']
                 )
@@ -189,16 +144,14 @@ class SHat(Method):
                 self.lasso_mask = lasso_mask
 
                 X_train = X_train[:, lasso_mask]
-                
                 s_hat = subset_search.full_search(
                     X_train, y_train, 
                     delta=self.params['delta'],
                     valid_split=self.params['valid_split'],
-                    n_samples_per_task_list=params['n_samples_per_task'], 
+                    n_samples_per_task=params['n_samples_per_task'], 
                     use_hsic=self.params['use_hsic'],
                     # is_classification_task = self.params['is_classification_task']
                 )
-
 
         if(len(s_hat) != 0):
             if(self.params['is_classification_task']):
@@ -208,16 +161,91 @@ class SHat(Method):
                 model = linear_model.LinearRegression()
                 model.fit(X_train[:, s_hat], y_train)
             
-            self.model = model  # Store the fitted model
-            # print(model.coef_)
+            self.model = model  
             self.selected_features = s_hat  # Store selected features
         else:
             self.selected_features = None
-            from scipy import stats
+
             if(self.params['is_classification_task']):
                 self.mode = stats.mode(y_train)[0]
             else:
                 self.mean = np.mean(y_train)
+    
+    def predict(self, X):
+        # Implement evaluation logic for SGreedy        
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
+        return self.model.predict(X[:, self.selected_features])
+    
+    def cal_residuals_list(self, X, y):
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
+        return self.model.predict(X[:, self.selected_features]) - y
+    
+    def cal_loss_list(self, X, y):
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
+        return (self.model.predict(X[:, self.selected_features]) - y)**2
+    
+    def evaluate(self, X_test, y_test):
+        # Implement evaluation logic for SGreedy        
+        if self.lasso_mask is not None:
+            X_test = X_test[:, self.lasso_mask]
+
+        if self.selected_features is not None:
+            return np.sqrt(mse(self.model, X_test[:, self.selected_features], y_test))
+        else:
+            return np.mean((self.mean - y_test)**2)
+
+# Sgreedy
+class SGreedy(Method):
+    def __init__(self, name='sgreedy'):
+        super().__init__(name)
+        self.params = None
+        
+    def set_params(self, params=None):
+        default_params = {
+            'delta': 0.01,
+            'valid_split': 0.4,
+            'is_classification_task': False, 
+            'mycode': True,
+        }
+        if params is not None:
+            merged_params = {**default_params, **params}
+        else:
+            merged_params = default_params
+
+        self.params = merged_params
+        return self
+    
+    def fit(self, X_train, y_train, params):
+
+        if self.params['mycode']:
+            s_greedy = subset_search.greedy_search(
+                X_train, y_train, 
+                alpha=self.params['delta'],
+                valid_split=self.params['valid_split'],
+                n_samples_per_task=params['n_samples_per_task']
+            )
+        else:
+            s_greedy = subset_search.greedy_subset(
+                X_train, y_train, 
+                delta=self.params['delta'],
+                valid_split=self.params['valid_split'],
+                n_ex=params['n_samples_per_task']
+                # is_classification_task=self.params['is_classification_task']
+            )
+
+        if(self.params['is_classification_task']):
+            model = linear_model.LogisticRegression()
+            model.fit(X_train[:, s_greedy], y_train)
+        else:
+            model = linear_model.LinearRegression()
+            model.fit(X_train[:, s_greedy], y_train)
+
+        self.model = model 
+        self.selected_features = s_greedy
+        return self
     
     def predict(self, X):
         return self.model.predict(X[:, self.selected_features])
@@ -227,30 +255,55 @@ class SHat(Method):
     
     def cal_loss_list(self, X, y):
         return (self.model.predict(X[:, self.selected_features]) - y)**2
-    
+
     def evaluate(self, X_test, y_test):
-        # Implement evaluation logic for SGreedy        
-        if self.lasso_mask is not None:
-            X_test = X_test[:, self.lasso_mask]
-
         if(self.params['is_classification_task']):
-            if self.selected_features is not None:
-                print("Evaluate selected features")
-                return accuracy_score(y_test, self.model.predict(X_test[:, self.selected_features]))
-            else:
-                return accuracy_score(y_test, np.full_like(y_test, self.mode))
+            return accuracy_score(y_test, self.model.predict(X_test[:, self.selected_features]))
         else:
-            if self.selected_features is not None:
-                # return mse_2(np.expm1(self.model.predict(X_test[:, self.selected_features])),y_test)
-                # return mae(self.model, X_test[:, self.selected_features], y_test)
-                return np.sqrt(mse(self.model, X_test[:, self.selected_features], y_test))
-            else:
-                return np.mean((self.mean - y_test)**2)
-                # return np.mean((y_test, self.model.predict(X_test[:,  self.selected_features]))**2)
-    
+            return np.sqrt(mse(self.model, X_test[:, self.selected_features], y_test))
+        
+#  ****************** RANDOM FOREST *********************
 
+# Pooling
+class Pooling_RF(Method):
+    def __init__(self, name='random_forest'):
+        super().__init__(name)
+    
+    def fit(self, X_train, y_train, params):
+
+        self.model = RandomForestRegressor(
+            n_estimators=500,
+            max_depth=None,
+            min_samples_split=2,
+            min_samples_leaf=1,
+            max_features='sqrt',
+            bootstrap=True,
+            random_state=42,
+            n_jobs=-1
+        )
+        self.model.fit(X_train, y_train)
+        return self
+
+    def predict(self, X):
+        return self.model.predict(X)[:, np.newaxis]
+    
+    def cal_residuals_list(self, X, y):
+        prediction = self.model.predict(X)[:, np.newaxis]
+        return prediction - y
+    
+    def cal_loss_list(self, X, y):
+        prediction = self.model.predict(X)[:, np.newaxis]
+        return (prediction - y)**2
+ 
+    def evaluate(self, X_test, y_test):
+
+        prediction = self.model.predict(X_test)[:, np.newaxis]
+
+        return np.sqrt(np.mean((prediction - y_test)**2))
+
+# Shat
 class SHat_RF(Method): 
-    def __init__(self, name='shat-RF'):
+    def __init__(self, name='shat-rf'):
         super().__init__(name)
         self.params = None 
         self.selected_features = None
@@ -264,7 +317,6 @@ class SHat_RF(Method):
             'mycode': True
         }
 
-        # Merge with default params
         if params is not None:
             merged_params = {**default_params, **params}
         else: 
@@ -274,8 +326,6 @@ class SHat_RF(Method):
         return self
     
     def fit(self, X_train, y_train, params):
-        # Implement fitting logic for SGreedy
-        # y_train = np.log1p(y_train)
 
         self.lasso_mask = None
         if (len(X_train[1]) < 13): 
@@ -284,9 +334,8 @@ class SHat_RF(Method):
                 X_train, y_train, 
                 alpha=self.params['delta'],
                 valid_split=self.params['valid_split'],
-                n_samples_per_task_list=params['n_samples_per_task'], 
+                n_samples_per_task=params['n_samples_per_task'], 
                 use_hsic=self.params['use_hsic']
-            
             )
         else:
             print("--Use Lasso--")
@@ -301,45 +350,166 @@ class SHat_RF(Method):
                 valid_split=self.params['valid_split'],
                 n_samples_per_task=params['n_samples_per_task'], 
                 use_hsic=self.params['use_hsic'],
-                # is_classification_task = self.params['is_classification_task']
             )
 
         if(len(s_hat) != 0):
-            model = RandomForestRegressor()
+            model = RandomForestRegressor(
+                n_estimators=500,
+                max_depth=None,
+                min_samples_split=2,
+                min_samples_leaf=1,
+                max_features='sqrt',
+                bootstrap=True,
+                random_state=42,
+                n_jobs=-1
+            )
             model.fit(X_train[:, s_hat], y_train)
             
-            self.model = model  # Store the fitted model
-            # print(model.coef_)
-            self.selected_features = s_hat  # Store selected features
+            self.model = model 
+            self.selected_features = s_hat
         else:
             self.selected_features = None
-            from scipy import stats
             self.mean = np.mean(y_train)
 
     
     def predict(self, X):
+        if self.lasso_mask is not None: 
+            X = X[:, self.lasso_mask]
         return self.model.predict(X[:, self.selected_features])[:, np.newaxis]
     
     def cal_residuals_list(self, X, y):
-        # print(f"Shape y{y.shape}, X{X.shape}")
-        # print(f"Model predict", self.model.predict(X).shape)[:, :np.newaxis]
+        if self.lasso_mask is not None: 
+            X = X[:, self.lasso_mask]
         prediction = self.model.predict(X[:, self.selected_features])[:, np.newaxis]
-
-        # prediction = prediction[:, np.newaxis]
         return prediction - y
     
     def cal_loss_list(self, X, y):
+        if self.lasso_mask is not None: 
+            X = X[:, self.lasso_mask]
         prediction = self.model.predict(X[:, self.selected_features])[:, np.newaxis]
         return (prediction - y)**2
  
     def evaluate(self, X_test, y_test):
-        # Implement evaluation logic for Pooling
+        if self.lasso_mask is not None: 
+            X_test = X_test[:, self.lasso_mask]
+
         prediction = self.model.predict(X_test[:, self.selected_features])[:, np.newaxis]
+        return np.sqrt(np.mean((prediction - y_test)**2))
+
+# Greedy
+class SGreedy_RF(Method):
+    def __init__(self, name='sgreedy-rf'):
+        super().__init__(name)
+        self.params = None
+        
+    def set_params(self, params=None):
+        default_params = {
+            'delta': 0.01,
+            'valid_split': 0.4,
+            'is_classification_task': False, 
+            'mycode': True,
+        }
+
+        if params is not None:
+            merged_params = {**default_params, **params}
+        else:
+            merged_params = default_params
+
+        self.params = merged_params
+        return self
+    
+    def fit(self, X_train, y_train, params):
+
+        if self.params['mycode']:
+            s_greedy = subset_search.greedy_search_rf(
+                X_train, y_train, 
+                alpha=self.params['delta'],
+                valid_split=self.params['valid_split'],
+                n_samples_per_task=params['n_samples_per_task']
+                # is_classification_task=self.params['is_classification_task']
+            )
+        else:
+            s_greedy = subset_search.greedy_search_rf(
+                X_train, y_train, 
+                delta=self.params['delta'],
+                valid_split=self.params['valid_split'],
+                n_ex=params['n_samples_per_task']
+                # is_classification_task=self.params['is_classification_task']
+            )
+
+        if(self.params['is_classification_task']):
+            model = linear_model.LogisticRegression()
+            model.fit(X_train[:, s_greedy], y_train)
+        else:
+            model = RandomForestRegressor(
+                n_estimators=500,
+                max_depth=None,
+                min_samples_split=2,
+                min_samples_leaf=1,
+                max_features='sqrt',
+                bootstrap=True,
+                random_state=42,
+                n_jobs=-1
+            )
+            model.fit(X_train[:, s_greedy], y_train)
+
+        self.model = model
+        self.selected_features = s_greedy 
+        return self
+    
+    def predict(self, X):
+        return self.model.predict(X[:, self.selected_features])
+    
+    def cal_residuals_list(self, X, y):
+        return self.model.predict(X[:, self.selected_features])[:, np.newaxis] - y
+    
+    def cal_loss_list(self, X, y):
+        return (self.model.predict(X[:, self.selected_features]) - y)**2
+
+    def evaluate(self, X_test, y_test):
+        if(self.params['is_classification_task']):
+            return accuracy_score(y_test, self.model.predict(X_test[:, self.selected_features]))
+        else:
+            # return mae(self.model, X_test[:, self.selected_features], y_test)
+            # return mse_2(np.expm1(self.model.predict(X_test[:, self.selected_features])), y_test)
+            return np.sqrt(mse(self.model, X_test[:, self.selected_features], y_test))
+
+
+#  ****************** LGBM **************************
+
+# Pooling
+class Pooling_LGBM(Method):
+    def __init__(self, name='lightGBM'):
+        super().__init__(name)
+    
+    def fit(self, X_train, y_train, params):
+        self.model = LGBMRegressor(
+            objective='regression', 
+            n_estimators=100,
+            learning_rate=0.1,
+            num_leaves=31
+        )
+        self.model.fit(X_train, y_train)
+        return self
+    
+    def predict(self, X):
+        return self.model.predict(X)[:, np.newaxis]
+    
+    def cal_residuals_list(self, X, y):
+        prediction = self.model.predict(X)[:, np.newaxis]
+        return prediction - y
+    
+    def cal_loss_list(self, X, y):
+        prediction = self.model.predict(X)[:, np.newaxis]
+        return (prediction - y)**2
+ 
+    def evaluate(self, X_test, y_test):
+        prediction = self.model.predict(X_test)[:, np.newaxis]
 
         return np.sqrt(np.mean((prediction - y_test)**2))
         # return np.sqrt(mse(self.model, X_test, y_test))
 
-
+# Shat
 class SHat_LGBM(Method): 
     def __init__(self, name='shat-LGBM'):
         super().__init__(name)
@@ -357,18 +527,17 @@ class SHat_LGBM(Method):
             'mycode': True
         }
 
-        # Merge with default params
         self.params = {**default_params, **(params or {})}
         return self
     
     def fit(self, X_train, y_train, params):
         if X_train.shape[1] < 13:
             print('---No Lasso ---')
-            s_hat = subset_search.full_search_rf(
+            s_hat = subset_search.full_search_lgbm(
                 X_train, y_train, 
                 alpha=self.params['delta'],
                 valid_split=self.params['valid_split'],
-                n_samples_per_task_list=params['n_samples_per_task'], 
+                n_samples_per_task=params['n_samples_per_task'], 
                 use_hsic=self.params['use_hsic']
             )
         else:
@@ -377,7 +546,7 @@ class SHat_LGBM(Method):
             print(f"Lasso Mask: {self.lasso_mask}")
             X_train = X_train[:, self.lasso_mask]
 
-            s_hat = subset_search.full_search_rf(
+            s_hat = subset_search.full_search_lgbm(
                 X_train, y_train, 
                 alpha=self.params['delta'],
                 valid_split=self.params['valid_split'],
@@ -386,7 +555,12 @@ class SHat_LGBM(Method):
             )
 
         if len(s_hat) != 0:
-            self.model = LGBMRegressor()
+            self.model = LGBMRegressor(
+                objective='regression', 
+                n_estimators=100,
+                learning_rate=0.1,
+                num_leaves=31
+            )
             self.model.fit(X_train[:, s_hat], y_train)
             self.selected_features = s_hat
         else:
@@ -396,23 +570,126 @@ class SHat_LGBM(Method):
     def predict(self, X):
         if self.selected_features is None:
             return np.full((X.shape[0], 1), self.mean)
+        
         if self.lasso_mask is not None:
             X = X[:, self.lasso_mask]
+
         pred = self.model.predict(X[:, self.selected_features])
         return pred[:, np.newaxis]
     
     def cal_residuals_list(self, X, y):
-        pred = self.predict(X)
-        return pred - y
+        if self.lasso_mask is not None: 
+            X = X[:, self.lasso_mask]
+        prediction = self.model.predict(X[:, self.selected_features])[:, np.newaxis]
+        return prediction - y
 
     def cal_loss_list(self, X, y):
-        pred = self.predict(X)
+        if self.lasso_mask is not None: 
+            X = X[:, self.lasso_mask]
+        pred = self.model.predict(X[:, self.selected_features])
         return (pred - y)**2
 
     def evaluate(self, X_test, y_test):
-        pred = self.predict(X_test)
+        if self.lasso_mask is not None: 
+            X_test = X_test[:, self.lasso_mask]
+        pred = self.model.predict(X_test[:, self.selected_features])
         return np.sqrt(np.mean((pred - y_test)**2))
+    
+# Greedy
+class SGreedy_LGBM(Method): 
+    def __init__(self, name='sgreedy-LGBM'):
+        super().__init__(name)
+        self.params = None 
+        self.selected_features = None
+        self.model = None
+        
+    def set_params(self, params=None):
+        default_params = {
+            'delta': 0.01,
+            'valid_split': 0.4,
+            'use_hsic': False, 
+            'mycode': True
+        }
 
+        self.params = {**default_params, **(params or {})}
+        return self
+    
+    def fit(self, X_train, y_train, params):
+        s_greedy = subset_search.greedy_search_lgbm(
+            X_train, y_train, 
+            alpha=self.params['delta'],
+            valid_split=self.params['valid_split'],
+            n_samples_per_task=params['n_samples_per_task'], 
+            use_hsic=self.params['use_hsic']
+        )
+        
+        if len(s_greedy) != 0:
+            # self.model = LGBMRegressor()
+            self.model = LGBMRegressor(
+                objective='regression', 
+                n_estimators=100,
+                learning_rate=0.1,
+                num_leaves=31
+            )
+            self.model.fit(X_train[:, s_greedy], y_train)
+            self.selected_features = s_greedy
+        else:
+            self.selected_features = None
+            self.mean = np.mean(y_train)
+
+    def predict(self, X):
+        if self.selected_features is None:
+            return np.full((X.shape[0], 1), self.mean)
+        
+        pred = self.model.predict(X[:, self.selected_features])
+        return pred[:, np.newaxis]
+    
+    def cal_residuals_list(self, X, y):
+        prediction = self.model.predict(X[:, self.selected_features])[:, np.newaxis]
+        return prediction - y
+
+    def cal_loss_list(self, X, y):
+        pred = self.model.predict(X[:, self.selected_features])
+        return (pred - y)**2
+
+    def evaluate(self, X_test, y_test):
+        pred = self.model.predict(X_test[:, self.selected_features])
+        return np.sqrt(np.mean((pred - y_test)**2))
+    
+# ******************* POLYNOMIAL *******************
+
+# Pooling
+class Pooling_poly(Method):
+    def __init__(self, name='polynomial'):
+        super().__init__(name)
+        self.degree = None
+
+    def set_params(self, degree=2):
+        self.degree = degree
+        self.name = ' '.join([self.name,str(degree)])
+        return self
+    
+    def fit(self, X_train, y_train, params):
+        from sklearn.preprocessing import PolynomialFeatures
+        from sklearn.pipeline import make_pipeline
+        
+        self.model = make_pipeline(PolynomialFeatures(self.degree), linear_model.LinearRegression())
+        self.model.fit(X_train, y_train)
+        return self 
+    def predict(self, X):
+        return self.model.predict(X)
+    
+    def cal_residuals_list(self, X, y):
+        return self.model.predict(X) - y
+    
+    def cal_loss_list(self, X, y):
+        return (self.model.predict(X) - y)**2
+    
+    def evaluate(self, X_test, y_test):
+        return np.sqrt(np.mean((self.model.predict(X_test) - y_test)**2))
+        # return np.sqrt(mse(self.model, X_test, y_test))
+
+# shat
 class SHat_poly(Method): 
     def __init__(self, name='shat-poly'):
         super().__init__(name)
@@ -447,7 +724,7 @@ class SHat_poly(Method):
                 X_train, y_train, 
                 alpha=self.params['delta'],
                 valid_split=self.params['valid_split'],
-                n_samples_per_task_list=params['n_samples_per_task'], 
+                n_samples_per_task=params['n_samples_per_task'], 
                 degree=self.degree,
                 use_hsic=self.params['use_hsic']
                 # is_classification_task = self.params['is_classification_task']
@@ -485,184 +762,294 @@ class SHat_poly(Method):
    
   
     def predict(self, X):
-        X_selected = X[:, self.selected_features]
-        print(X_selected[0])
-        predictions = self.model.predict(X_selected).squeeze()
-        outlier_id = predictions < -2000
-        print(np.sum(outlier_id))
-        print(self.selected_features)
-        print(X[:, self.selected_features][outlier_id])
-        # ldsjglkj
-   
-        # lskdjg
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
         return self.model.predict(X[:, self.selected_features])[:, np.newaxis]
     
     def cal_residuals_list(self, X, y):
-        # print(f"Shape y{y.shape}, X{X.shape}")
-        # print(f"Model predict", self.model.predict(X).shape)[:, :np.newaxis]
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
         prediction = self.model.predict(X[:, self.selected_features])#[:, np.newaxis]
-
-        # prediction = prediction[:, np.newaxis]
         return prediction - y
     
     def cal_loss_list(self, X, y):
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
         prediction = self.model.predict(X[:, self.selected_features])#[:, np.newaxis]
         return (prediction - y)**2
  
     def evaluate(self, X_test, y_test):
-        # Implement evaluation logic for Pooling
+        if self.lasso_mask is not None:
+            X_test = X_test[:, self.lasso_mask]
         prediction = self.model.predict(X_test[:, self.selected_features])#[:, np.newaxis]
-
         return np.sqrt(np.mean((prediction - y_test)**2))
-        # return np.sqrt(mse(self.model, X_test, y_test))
 
-class Pooling(Method):
-    def __init__(self, name='pooling'):
+# Sgreedy
+class SGreedy_poly(Method): 
+    def __init__(self, name='sgreedy-poly'):
         super().__init__(name)
-    
-    def fit(self, X_train, y_train, params):
-        # Implement fitting logic for Pooling
-        # This is a placeholder for actual fitting logic
-        # y_train = np.log1p(y_train)  # Log transform the target variable
-        self.model = linear_model.LinearRegression()
-        self.model.fit(X_train, y_train)
-       
-        return self
-
-    def predict(self, X):
-        return self.model.predict(X)
-    
-    def cal_residuals_list(self, X, y):
-        return self.model.predict(X) - y
-    
-    def cal_loss_list(self, X, y):
-        return (self.model.predict(X) - y)**2
-    
-    def evaluate(self, X_test, y_test):
-        # Implement evaluation logic for Pooling
-        return np.sqrt(np.mean((self.model.predict(X_test) - y_test)**2))
-        # return np.sqrt(mse(self.model, X_test, y_test))
-
-class Pooling_poly(Method):
-    def __init__(self, name='polynomial'):
-        super().__init__(name)
-        self.degree = None
-
-    def set_params(self, degree=2):
-        self.degree = degree
-        self.name = ' '.join([self.name,str(degree)])
-        return self
-    
-    def fit(self, X_train, y_train, params):
-        from sklearn.preprocessing import PolynomialFeatures
-        from sklearn.pipeline import make_pipeline
+        self.params = None 
+        self.selected_features = None
         
-        self.model = make_pipeline(PolynomialFeatures(self.degree), linear_model.LinearRegression())
-        self.model.fit(X_train, y_train)
-        return self 
+    def set_params(self, degree=2, params=None):
+        default_params = {
+            'delta': 0.01,
+            'valid_split': 0.4,
+            'use_hsic': False, 
+            'mycode': True
+        }
+
+        # Merge with default params
+        if params is not None:
+            merged_params = {**default_params, **params}
+        else: 
+            merged_params = default_params
+
+        self.params = merged_params
+        self.degree = degree
+        return self
+    
+    def fit(self, X_train, y_train, params):
+        
+        s_greedy = subset_search.greedy_search_poly(
+            X_train, y_train, 
+            alpha=self.params['delta'],
+            valid_split=self.params['valid_split'],
+            n_samples_per_task=params['n_samples_per_task'], 
+            degree=self.degree,
+            use_hsic=self.params['use_hsic']
+            # is_classification_task = self.params['is_classification_task']
+        )
+
+        if(len(s_greedy) != 0):
+            from sklearn.preprocessing import PolynomialFeatures
+            from sklearn.pipeline import make_pipeline
+            self.selected_features = s_greedy
+            self.model = make_pipeline(PolynomialFeatures(self.degree), linear_model.LinearRegression())
+
+            self.model.fit(X_train[:, self.selected_features], y_train)
+            return self 
+        else:
+            self.selected_features = None
+            self.mean = np.mean(y_train)
+   
+  
+    def predict(self, X):
+        return self.model.predict(X[:, self.selected_features])[:, np.newaxis]
+    
+    def cal_residuals_list(self, X, y):
+        prediction = self.model.predict(X[:, self.selected_features])#[:, np.newaxis]
+        return prediction - y
+    
+    def cal_loss_list(self, X, y):
+        prediction = self.model.predict(X[:, self.selected_features])#[:, np.newaxis]
+        return (prediction - y)**2
+ 
+    def evaluate(self, X_test, y_test):
+        prediction = self.model.predict(X_test[:, self.selected_features])#[:, np.newaxis]
+        return np.sqrt(np.mean((prediction - y_test)**2))
+
+
+#  *************** GAM ******************
+
+# Pooling
+from pygam import LinearGAM, s
+class Pooling_GAM(Method):
+    def __init__(self, name='Pooling_GAM'):
+        super().__init__(name)
+        self.model = None
+        self.terms = None
+
+    def set_params(self, max_features=None):
+        self.max_features = max_features
+        return self
+
+    
+    def fit(self, X_train, y_train, params=None):
+        n_features = X_train.shape[1]
+
+        self.terms = sum([s(i) for i in range(n_features)], start=s(0))
+
+        self.model = LinearGAM(self.terms)
+        self.model.fit(X_train, y_train.flatten())
+
+        return self
+    
     def predict(self, X):
         return self.model.predict(X)
-    
+
     def cal_residuals_list(self, X, y):
-        return self.model.predict(X) - y
-    
+        return self.predict(X) - y.flatten()
+
     def cal_loss_list(self, X, y):
-        return (self.model.predict(X) - y)**2
-    
+        return (self.predict(X) - y.flatten())**2
+
     def evaluate(self, X_test, y_test):
-        # Implement evaluation logic for Pooling
-        return np.sqrt(np.mean((self.model.predict(X_test) - y_test)**2))
-        # return np.sqrt(mse(self.model, X_test, y_test))
+        residuals = self.predict(X_test) - y_test.flatten()
+        return np.sqrt(np.mean(residuals**2))  # RMSE
+    
 
-class Pooling_RF(Method):
-    def __init__(self, name='random_forest'):
+# shat
+class SHat_GAM(Method): 
+    def __init__(self, name='shat-gam'):
         super().__init__(name)
-    
-    def fit(self, X_train, y_train, params):
-        # Implement fitting logic for Pooling
-        # This is a placeholder for actual fitting logic
-        # y_train = np.log1p(y_train)  # Log transform the target variable
+        self.params = None 
+        self.selected_features = None
+        
+    def set_params(self, params=None):
+        default_params = {
+            'delta': 0.01,
+            'valid_split': 0.4,
+            'use_hsic': False, 
+            'is_classification_task': False, 
+        }
 
-        self.model = RandomForestRegressor(
-            n_estimators=500,
-            max_depth=None,
-            min_samples_split=2,
-            min_samples_leaf=1,
-            max_features='sqrt',
-            bootstrap=True,
-            random_state=42,
-            n_jobs=-1
-        )
-        self.model.fit(X_train, y_train)
+        if params is not None:
+            merged_params = {**default_params, **params}
+        else: 
+            merged_params = default_params
+
+        self.params = merged_params
         return self
-    
+
+    def fit(self, X_train, y_train, params):
+        self.lasso_mask = None
+        if X_train.shape[1] < 13:
+            print('---No Lasso ---')
+            s_hat = subset_search.full_search_gam(
+                X_train, y_train, 
+                alpha=self.params['delta'],
+                valid_split=self.params['valid_split'],
+                n_samples_per_task=params['n_samples_per_task'],
+                use_hsic=self.params['use_hsic']
+            )
+        else:
+            print("--Use Lasso--")
+            lasso_mask = lasso_binary_search_alpha(X_train, y_train)
+            self.lasso_mask = lasso_mask
+            X_train = X_train[:, lasso_mask]
+
+            s_hat = subset_search.full_search_gam(
+                X_train, y_train, 
+                alpha=self.params['delta'],
+                valid_split=self.params['valid_split'],
+                n_samples_per_task=params['n_samples_per_task'],
+                use_hsic=self.params['use_hsic']
+            )
+
+        print(f"S_hat GAM found {s_hat}")
+
+        if len(s_hat) != 0:
+            self.selected_features = s_hat
+            gam_terms = s(0)
+            for j in range(1, len(s_hat)):
+                gam_terms += s(j)
+
+            # gam_terms = sum([s(i) for i in range(len(s_hat))])
+            self.model = LinearGAM(gam_terms)
+            self.model.fit(X_train[:, s_hat], y_train)
+        else:
+            self.selected_features = None
+            self.mean = np.mean(y_train)
+
+        return self
 
     def predict(self, X):
-        return self.model.predict(X)[:, np.newaxis]
+        if self.selected_features is None:
+            return np.full((X.shape[0], 1), self.mean)
+        
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
+        return self.model.predict(X[:, self.selected_features])[:, np.newaxis]
     
     def cal_residuals_list(self, X, y):
-        # print(f"Shape y{y.shape}, X{X.shape}")
-        # print(f"Model predict", self.model.predict(X).shape)[:, :np.newaxis]
-        prediction = self.model.predict(X)[:, np.newaxis]
-
-        # prediction = prediction[:, np.newaxis]
-        return prediction - y
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
+        prediction = self.model.predict(X[:, self.selected_features])
+        return prediction - y.ravel()
     
     def cal_loss_list(self, X, y):
-        prediction = self.model.predict(X)[:, np.newaxis]
+        if self.lasso_mask is not None:
+            X = X[:, self.lasso_mask]
+        prediction = self.model.predict(X[:, self.selected_features])
         return (prediction - y)**2
- 
+
     def evaluate(self, X_test, y_test):
-        # Implement evaluation logic for Pooling
-        # return mae(self.model, X_test, y_test)
-        # return mse_2(np.expm1(self.model.predict(X_test)), y_test)
-        prediction = self.model.predict(X_test)[:, np.newaxis]
-
+        if self.lasso_mask is not None:
+            X_test = X_test[:, self.lasso_mask]
+        prediction = self.model.predict(X_test[:, self.selected_features])
         return np.sqrt(np.mean((prediction - y_test)**2))
-        # return np.sqrt(mse(self.model, X_test, y_test))
     
-class Pooling_LGBM(Method):
-    def __init__(self, name='lightGBM'):
-        super().__init__(name)
-    
-    def fit(self, X_train, y_train, params):
-        # Implement fitting logic for Pooling
-        # This is a placeholder for actual fitting logic
 
-        # y_train = np.log1p(y_train)  # Log transform the target variable
-        self.model = LGBMRegressor(
-            objective='regression',   # or 'regression_l1', 'huber', etc.
-            n_estimators=100,
-            learning_rate=0.1,
-            num_leaves=31
-        )
-        self.model.fit(X_train, y_train)
+# Sgreedy
+class SGreedy_GAM(Method): 
+    def __init__(self, name='sgreedy-gam'):
+        super().__init__(name)
+        self.params = None 
+        self.selected_features = None
+        
+    def set_params(self, params=None):
+        default_params = {
+            'delta': 0.01,
+            'valid_split': 0.4,
+            'use_hsic': False, 
+            'is_classification_task': False, 
+        }
+
+        if params is not None:
+            merged_params = {**default_params, **params}
+        else: 
+            merged_params = default_params
+
+        self.params = merged_params
         return self
-    
+
+    def fit(self, X_train, y_train, params):
+        
+        s_greedy = subset_search.greedy_search_gam(  # You will define this
+            X_train, y_train, 
+            alpha=self.params['delta'],
+            valid_split=self.params['valid_split'],
+            n_samples_per_task=params['n_samples_per_task'],
+            use_hsic=self.params['use_hsic']
+        )
+
+        print(f"S_hat GAM found {s_greedy}")
+
+        if len(s_greedy) != 0:
+            self.selected_features = s_greedy
+            gam_terms = s(0)
+            for j in range(1, len(s_greedy)):
+                gam_terms += s(j)
+
+            # gam_terms = sum([s(i) for i in range(len(s_hat))])
+            self.model = LinearGAM(gam_terms)
+            self.model.fit(X_train[:, s_greedy], y_train)
+        else:
+            self.selected_features = None
+            self.mean = np.mean(y_train)
+        return self
 
     def predict(self, X):
-        return self.model.predict(X)[:, np.newaxis]
+        if self.selected_features is None:
+            return np.full((X.shape[0], 1), self.mean)
+        return self.model.predict(X[:, self.selected_features])[:, np.newaxis]
     
     def cal_residuals_list(self, X, y):
-        # print(f"Shape y{y.shape}, X{X.shape}")
-        # print(f"Model predict", self.model.predict(X).shape)[:, :np.newaxis]
-        prediction = self.model.predict(X)[:, np.newaxis]
-
-        # prediction = prediction[:, np.newaxis]
-        return prediction - y
+        prediction = self.model.predict(X[:, self.selected_features])
+        return prediction - y.ravel()
     
     def cal_loss_list(self, X, y):
-        prediction = self.model.predict(X)[:, np.newaxis]
+        prediction = self.model.predict(X[:, self.selected_features])
         return (prediction - y)**2
- 
-    def evaluate(self, X_test, y_test):
-        # Implement evaluation logic for Pooling
-        # return mae(self.model, X_test, y_test)
-        # return mse_2(np.expm1(self.model.predict(X_test)), y_test)
-        prediction = self.model.predict(X_test)[:, np.newaxis]
 
+    def evaluate(self, X_test, y_test):
+        prediction = self.model.predict(X_test[:, self.selected_features])
         return np.sqrt(np.mean((prediction - y_test)**2))
-        # return np.sqrt(mse(self.model, X_test, y_test))
+    
+
+
+# ***** NN ************
 
 class Pooling_NN(Method):
     def __init__(self, name="neural-network"):
@@ -733,377 +1120,3 @@ class Mode(Method):
 
     def evaluate(self, X_test, y_test):
         return accuracy_score(y_test > 0.5, np.full_like(y_test, self.mode))
-
-
-
-
-class SHat_GAM(Method): 
-    def __init__(self, name='shat-gam'):
-        super().__init__(name)
-        self.params = None 
-        self.selected_features = None
-        
-    def set_params(self, params=None):
-        default_params = {
-            'delta': 0.01,
-            'valid_split': 0.4,
-            'use_hsic': False, 
-            'is_classification_task': False, 
-        }
-
-        if params is not None:
-            merged_params = {**default_params, **params}
-        else: 
-            merged_params = default_params
-
-        self.params = merged_params
-        return self
-
-    def fit(self, X_train, y_train, params):
-        self.lasso_mask = None
-        if X_train.shape[1] < 13:
-            print('---No Lasso ---')
-            s_hat = subset_search.full_search_gam(  # You will define this
-                X_train, y_train, 
-                alpha=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_samples_per_task=params['n_samples_per_task'],
-                use_hsic=self.params['use_hsic']
-            )
-        else:
-            print("--Use Lasso--")
-            lasso_mask = lasso_binary_search_alpha(X_train, y_train)
-            self.lasso_mask = lasso_mask
-            X_train = X_train[:, lasso_mask]
-
-            s_hat = subset_search.full_search_gam(
-                X_train, y_train, 
-                alpha=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_samples_per_task=params['n_samples_per_task'],
-                use_hsic=self.params['use_hsic']
-            )
-
-        print(f"S_hat GAM found {s_hat}")
-
-        if len(s_hat) != 0:
-            self.selected_features = s_hat
-            gam_terms = s(0)
-            for j in range(1, len(s_hat)):
-                gam_terms += s(j)
-
-            # gam_terms = sum([s(i) for i in range(len(s_hat))])
-            self.model = LinearGAM(gam_terms)
-            self.model.fit(X_train[:, s_hat], y_train)
-        else:
-            self.selected_features = None
-            self.mean = np.mean(y_train)
-
-        return self
-
-    def predict(self, X):
-        if self.selected_features is None:
-            return np.full((X.shape[0], 1), self.mean)
-        return self.model.predict(X[:, self.selected_features])[:, np.newaxis]
-    
-    def cal_residuals_list(self, X, y):
-        prediction = self.model.predict(X[:, self.selected_features])
-        return prediction - y.ravel()
-    
-    def cal_loss_list(self, X, y):
-        prediction = self.model.predict(X[:, self.selected_features])
-        return (prediction - y)**2
-
-    def evaluate(self, X_test, y_test):
-        prediction = self.model.predict(X_test[:, self.selected_features])
-        return np.sqrt(np.mean((prediction - y_test)**2))
-from pygam import LinearGAM, s
-import numpy as np
-from sklearn.base import BaseEstimator
-
-class Pooling_GAM(Method):
-
-
-    def __init__(self, name='Pooling_GAM'):
-        super().__init__(name)
-        self.model = None
-        self.terms = None
-
-    def set_params(self, max_features=None):
-        """
-        Optionally limit number of features used (e.g., for subset selection or regularization).
-        """
-        self.max_features = max_features
-        return self
-
-    
-    def fit(self, X_train, y_train, params=None):
-        n_features = X_train.shape[1]
-
-        # Define additive terms: s(0) + s(1) + ... + s(n-1)
-        self.terms = sum([s(i) for i in range(n_features)], start=s(0))
-
-        self.model = LinearGAM(self.terms)
-        self.model.fit(X_train, y_train.flatten())
-
-        return self
-    
-    def predict(self, X):
-        return self.model.predict(X)
-
-    def cal_residuals_list(self, X, y):
-        return self.predict(X) - y.flatten()
-
-    def cal_loss_list(self, X, y):
-        return (self.predict(X) - y.flatten())**2
-
-    def evaluate(self, X_test, y_test):
-        residuals = self.predict(X_test) - y_test.flatten()
-        return np.sqrt(np.mean(residuals**2))  # RMSE
-    
-
-
- 
-class SGreedy_RF(Method):
-    def __init__(self, name='sgreedy-rf'):
-        super().__init__(name)
-        self.params = None
-        
-    def set_params(self, params=None):
-        default_params = {
-            'delta': 0.01,
-            'valid_split': 0.4,
-            'is_classification_task': False, 
-            'mycode': True,
-        }
-
-        if params is not None:
-            merged_params = {**default_params, **params}
-        else:
-            merged_params = default_params
-
-        self.params = merged_params
-        return self
-    
-    def fit(self, X_train, y_train, params):
-
-        if self.params['mycode']:
-            s_greedy = subset_search.greedy_search(
-                X_train, y_train, 
-                alpha=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_samples_per_task=params['n_samples_per_task']
-                # is_classification_task=self.params['is_classification_task']
-            )
-        else:
-            s_greedy = subset_search.greedy_subset(
-                X_train, y_train, 
-                delta=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_ex=params['n_samples_per_task']
-                # is_classification_task=self.params['is_classification_task']
-            )
-
-        if(self.params['is_classification_task']):
-            model = linear_model.LogisticRegression()
-            model.fit(X_train[:, s_greedy], y_train)
-        else:
-            model = RandomForestRegressor()
-            model.fit(X_train[:, s_greedy], y_train)
-
-        self.model = model  # Store the fitted model
-        self.selected_features = s_greedy  # Store selected features
-        return self
-    
-    def predict(self, X):
-        return self.model.predict(X[:, self.selected_features])
-    
-    def cal_residuals_list(self, X, y):
-        return self.model.predict(X[:, self.selected_features]) - y
-    
-    def cal_loss_list(self, X, y):
-        return (self.model.predict(X[:, self.selected_features]) - y)**2
-
-    def evaluate(self, X_test, y_test):
-        if(self.params['is_classification_task']):
-            return accuracy_score(y_test, self.model.predict(X_test[:, self.selected_features]))
-        else:
-            # return mae(self.model, X_test[:, self.selected_features], y_test)
-            # return mse_2(np.expm1(self.model.predict(X_test[:, self.selected_features])), y_test)
-            return np.sqrt(mse(self.model, X_test[:, self.selected_features], y_test))
-
-
-
-
-
-class SGreedy_GAM(Method): 
-    def __init__(self, name='sgreedy-gam'):
-        super().__init__(name)
-        self.params = None 
-        self.selected_features = None
-        
-    def set_params(self, params=None):
-        default_params = {
-            'delta': 0.01,
-            'valid_split': 0.4,
-            'use_hsic': False, 
-            'is_classification_task': False, 
-        }
-
-        if params is not None:
-            merged_params = {**default_params, **params}
-        else: 
-            merged_params = default_params
-
-        self.params = merged_params
-        return self
-
-    def fit(self, X_train, y_train, params):
-        self.lasso_mask = None
-        if X_train.shape[1] < 13:
-            print('---No Lasso ---')
-            s_hat = subset_search.full_search_gam(  # You will define this
-                X_train, y_train, 
-                alpha=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_samples_per_task=params['n_samples_per_task'],
-                use_hsic=self.params['use_hsic']
-            )
-        else:
-            print("--Use Lasso--")
-            lasso_mask = lasso_binary_search_alpha(X_train, y_train)
-            self.lasso_mask = lasso_mask
-            X_train = X_train[:, lasso_mask]
-
-            s_hat = subset_search.full_search_gam(
-                X_train, y_train, 
-                alpha=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_samples_per_task=params['n_samples_per_task'],
-                use_hsic=self.params['use_hsic']
-            )
-
-        print(f"S_hat GAM found {s_hat}")
-
-        if len(s_hat) != 0:
-            self.selected_features = s_hat
-            gam_terms = s(0)
-            for j in range(1, len(s_hat)):
-                gam_terms += s(j)
-
-            # gam_terms = sum([s(i) for i in range(len(s_hat))])
-            self.model = LinearGAM(gam_terms)
-            self.model.fit(X_train[:, s_hat], y_train)
-        else:
-            self.selected_features = None
-            self.mean = np.mean(y_train)
-
-        return self
-
-    def predict(self, X):
-        if self.selected_features is None:
-            return np.full((X.shape[0], 1), self.mean)
-        return self.model.predict(X[:, self.selected_features])[:, np.newaxis]
-    
-    def cal_residuals_list(self, X, y):
-        prediction = self.model.predict(X[:, self.selected_features])
-        return prediction - y.ravel()
-    
-    def cal_loss_list(self, X, y):
-        prediction = self.model.predict(X[:, self.selected_features])
-        return (prediction - y)**2
-
-    def evaluate(self, X_test, y_test):
-        prediction = self.model.predict(X_test[:, self.selected_features])
-        return np.sqrt(np.mean((prediction - y_test)**2))
-    
-
-class SHat_RF(Method): 
-    def __init__(self, name='shat-RF'):
-        super().__init__(name)
-        self.params = None 
-        self.selected_features = None
-        
-    def set_params(self, params=None):
-        default_params = {
-            'delta': 0.01,
-            'valid_split': 0.4,
-            'use_hsic': False, 
-            'is_classification_task': False, 
-            'mycode': True
-        }
-
-        # Merge with default params
-        if params is not None:
-            merged_params = {**default_params, **params}
-        else: 
-            merged_params = default_params
-
-        self.params = merged_params
-        return self
-    
-    def fit(self, X_train, y_train, params):
-        # Implement fitting logic for SGreedy
-        # y_train = np.log1p(y_train)
-
-        self.lasso_mask = None
-        if (len(X_train[1]) < 13): 
-            print('---No Lasso ---')
-            s_hat = subset_search.full_search_rf(
-                X_train, y_train, 
-                alpha=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_samples_per_task_list=params['n_samples_per_task'], 
-                use_hsic=self.params['use_hsic']
-            
-            )
-        else:
-            print("--Use Lasso--")
-            lasso_mask = lasso_binary_search_alpha(X_train, y_train)
-            self.lasso_mask = lasso_mask
-            print(f"Lasso Mask: {lasso_mask}")
-            X_train = X_train[:, lasso_mask]
-            
-            s_hat = subset_search.full_search_rf(
-                X_train, y_train, 
-                alpha=self.params['delta'],
-                valid_split=self.params['valid_split'],
-                n_samples_per_task=params['n_samples_per_task'], 
-                use_hsic=self.params['use_hsic'],
-                # is_classification_task = self.params['is_classification_task']
-            )
-
-        if(len(s_hat) != 0):
-            model = RandomForestRegressor()
-            model.fit(X_train[:, s_hat], y_train)
-            
-            self.model = model  # Store the fitted model
-            # print(model.coef_)
-            self.selected_features = s_hat  # Store selected features
-        else:
-            self.selected_features = None
-            from scipy import stats
-            self.mean = np.mean(y_train)
-
-    
-    def predict(self, X):
-        return self.model.predict(X[:, self.selected_features])[:, np.newaxis]
-    
-    def cal_residuals_list(self, X, y):
-        # print(f"Shape y{y.shape}, X{X.shape}")
-        # print(f"Model predict", self.model.predict(X).shape)[:, :np.newaxis]
-        prediction = self.model.predict(X[:, self.selected_features])[:, np.newaxis]
-
-        # prediction = prediction[:, np.newaxis]
-        return prediction - y
-    
-    def cal_loss_list(self, X, y):
-        prediction = self.model.predict(X[:, self.selected_features])[:, np.newaxis]
-        return (prediction - y)**2
- 
-    def evaluate(self, X_test, y_test):
-        # Implement evaluation logic for Pooling
-        prediction = self.model.predict(X_test[:, self.selected_features])[:, np.newaxis]
-
-        return np.sqrt(np.mean((prediction - y_test)**2))
-        # return np.sqrt(mse(self.model, X_test, y_test))
