@@ -1,24 +1,18 @@
 import numpy as np
-from sklearn import linear_model
+import pandas as pd
 import argparse
-import re_subset_search as subset_search
 import pickle
 import os
 from data import *
 from utils import *
-import gc
 from plotting import *
 from method import *
+import gc
 
 np.random.seed(1234)
 
-s_range_pcv = 0.001
-e_range_pcv = 0.999
-
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--save_dir", default=f"Experiment_01_top_left"
-)
+parser.add_argument("--save_dir", default=f"Experiment_01_top_left")
 parser.add_argument("--n_task", default=10)
 parser.add_argument("--merge_dica", default=0)
 parser.add_argument("--n", default=4000)
@@ -37,80 +31,54 @@ parser.add_argument("--n_ul", default=100)
 args = parser.parse_args()
 
 save_dir = args.save_dir
-
-if not os.path.exists(save_dir) :
+if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
 n_task = int(args.n_task)
 n = int(args.n)
-
 p = int(args.p)
 p_s = int(args.p_s)
 p_conf = int(args.p_conf)
 eps = float(args.eps)
 g = float(args.g)
-
 lambd = float(args.lambd)
 lambd_test = float(args.lambd_test)
-
 alpha_test = float(args.alpha_test)
 use_hsic = bool(int(args.use_hsic))
+n_repeat = int(args.n_repeat)
 
+# Load dataset
 dataset = gauss_tl(n_task, n, p, p_s, p_conf, eps, g, lambd, lambd_test)
-# x_train = dataset.train['x_train'].astype(np.float32)
-# y_train = dataset.train['y_train'].astype(np.float32)
 n_ex = dataset.train["n_ex"]
 
-# Define test
 x_test = dataset.train["x_test"].astype(np.float32)
 y_test = dataset.train["y_test"].astype(np.float32)
 
-n_train_tasks = np.arange(2, n_task)
-n_repeat = int(args.n_repeat)
-
-true_s = np.arange(p_s)
+n_train_tasks = np.arange(p_s + 1)
+color_dict, markers, legends = get_color_dict()
 
 pooling = Pooling()
-# pooling_non_lin_1 = Pooling_RF()
-# pooling_non_lin_2 = Pooling_LGBM()
-# pooling_poly = Pooling_poly().set_params(degree=2)
 mean = Mean()
 sgreedy = SGreedy().set_params({'alpha': 0.001, 'use_hsic': False})
 shat = SHat().set_params({'alpha': 0.001, 'use_hsic': False})
-# shat_rf = SHat_RF().set_params({'alpha': 0.001, 'use_hsic': False})
-# shat_poly = SHat_poly().set_params(degree=2, params={'alpha': 0.001, 'use_hsic': False})
 causal = Causal().set_params()
 methods = [pooling, shat, sgreedy, mean, causal]
-
-results = {}
 methods_name = [method.name for method in methods]
 
-n_train_tasks = np.arange(p_s + 1)
-print(n_train_tasks)
-color_dict, markers, legends = get_color_dict()
+results = {m: np.zeros((n_repeat, len(n_train_tasks))) for m in methods_name}
+feature_log = []
 
-print("n_rep", n_repeat)
-print(n_train_tasks.size)
-for m in methods_name:
-    results[m] = np.zeros((n_repeat, n_train_tasks.size))
+true_causal = set(range(p_s))
 
 for rep in range(n_repeat):
     print("**************REP", rep, "*******")
-
     x_train, y_train = dataset.resample(n_task, n)
-
     x_test = dataset.test["x_test"]
     y_test = dataset.test["y_test"]
 
     for index, n_ps in np.ndenumerate(n_train_tasks):
-    # for index, t in np.ndenumerate(n_train_tasks):
         print("---- Round ", index)
-        # x_temp = x_train[0 : np.cumsum(n_ex)[t], :]
-        # y_temp = y_train[0 : np.cumsum(n_ex)[t], :]
-
-        params = {
-            'n_samples_per_task': n_ex,
-        }
+        params = {'n_samples_per_task': n_ex, 'run_metadata': {'rep': rep, 'n_ps': n_ps}}
 
         for method in methods:
             print(method.name)
@@ -119,27 +87,66 @@ for rep in range(n_repeat):
                 method.fit(x_train, y_train, params)
                 results[method.name][rep, index] = method.evaluate(x_test, y_test)
             else:
-                x_temp = x_train[:, n_ps:]
+                x_temp = x_train[:, n_ps:]  # Remove first n_ps features
                 y_temp = y_train
                 method.fit(x_temp, y_temp, params)
                 results[method.name][rep, index] = method.evaluate(x_test[:, n_ps:], y_test)
-        
+
+                if hasattr(method, "selected_features") and method.selected_features is not None:
+                    selected = method.selected_features
+                    if hasattr(method, "lasso_mask") and method.lasso_mask is not None:
+                        selected = np.where(method.lasso_mask)[0][selected]
+
+                    # Convert selected indices back to original feature space
+                    selected_original = selected + n_ps
+                    selected_set = set(selected_original)
+                    
+                    # Causal features that remain after truncation (in original indices)
+                    remaining_causal_original = set(range(n_ps, p_s))
+                    
+                    # Find intersection - causal features that were both retained and selected
+                    correct = selected_set.intersection(remaining_causal_original)
+                    
+                    # Calculate metrics
+                    total_causal_remaining = len(remaining_causal_original)  # p_s - n_ps
+                    causal_selected = len(correct)
+                    
+                    feature_log.append({
+                        "rep": rep,
+                        "method": method.name,
+                        "n_train_tasks": n_ps,
+                        "total_causal_features": p_s,
+                        "causal_removed": n_ps,
+                        "causal_remaining": total_causal_remaining,
+                        "causal_selected": causal_selected,
+                        "selection_accuracy": causal_selected / total_causal_remaining if total_causal_remaining > 0 else 0,
+                        "selected_features_original": list(selected_original),
+                        "selected_features_truncated": list(selected)
+                    })
+
     del x_train, y_train, x_test, y_test
+    gc.collect()
 
-save_all = {}
-save_all["results"] = results
+# Save results
+save_all = {
+    "results": results,
+    "plotting": [methods_name, color_dict, legends, markers],
+    "n_train_tasks": n_train_tasks
+}
 
-save_all["plotting"] = [methods_name, color_dict, legends, markers]
-
-# print('RANGE', np.arange(p_s + 1))
-save_all["n_train_tasks"] = n_train_tasks#np.arange(p_s + 1) 
-
-# Save pickle file
-file_name = ["tl_norm_", str(n_repeat), str(eps), str(g), str(lambd)]
+file_name = ["tl_norm", str(n_repeat), str(eps), str(g), str(lambd)]
 file_name = "_".join(file_name)
 
 with open(os.path.join(save_dir, file_name + ".pkl"), "wb") as f:
     pickle.dump(save_all, f)
 
-# Create plot
+# Save selected feature log
+df_selected = pd.DataFrame(feature_log)
+if not df_selected.empty:
+    # Convert list columns to string for CSV storage
+    df_selected["selected_features_original"] = df_selected["selected_features_original"].apply(lambda x: ",".join(map(str, x)))
+    df_selected["selected_features_truncated"] = df_selected["selected_features_truncated"].apply(lambda x: ",".join(map(str, x)))
+    df_selected.to_csv(os.path.join(save_dir, file_name + "_features.csv"), index=False)
+
+# Plot
 plot_tl(os.path.join(save_dir, file_name + ".pkl"))
