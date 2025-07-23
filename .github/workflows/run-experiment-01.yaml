@@ -11,6 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          
+       # (Optional) Step 2: Force pull LFS files again
+      - name: Pull Git LFS files
+        run: git lfs pull
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
