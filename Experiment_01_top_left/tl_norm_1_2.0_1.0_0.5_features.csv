@@ -1,0 +1,15 @@
+rep,method,total_causal_features,causal_removed,causal_remaining,causal_selected,selection_accuracy,selected_features_original,selected_features_truncated
+0,shat,6,0,6,6,1.0,"0,1,2,3,4,5","0,1,2,3,4,5"
+0,sgreedy,6,0,6,5,0.8333333333333334,"0,1,2,4,5","0,1,2,4,5"
+0,shat,6,1,5,5,1.0,"1,2,3,4,5","0,1,2,3,4"
+0,sgreedy,6,1,5,4,0.8,"1,2,4,5","0,1,3,4"
+0,shat,6,2,4,4,1.0,"2,3,4,5","0,1,2,3"
+0,sgreedy,6,2,4,3,0.75,"2,4,5","0,2,3"
+0,shat,6,3,3,3,1.0,"3,4,5,8","0,1,2,5"
+0,sgreedy,6,3,3,3,1.0,"3,4,5,8","0,1,2,5"
+0,shat,6,4,2,2,1.0,"4,5","0,1"
+0,sgreedy,6,4,2,2,1.0,"4,5","0,1"
+0,shat,6,5,1,1,1.0,"5,8","0,3"
+0,sgreedy,6,5,1,1,1.0,"5,8","0,3"
+0,shat,6,6,0,0,0.0,8,2
+0,sgreedy,6,6,0,0,0.0,8,2

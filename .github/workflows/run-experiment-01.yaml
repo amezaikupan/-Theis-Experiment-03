@@ -4,7 +4,7 @@ name: Run HSIC
 on:
   push:
     branches:
-      - tn  # Triggers when you push to the main branch
+      - tn_2  # Triggers when you push to the main branch
 
 jobs:
   run-python:
@@ -25,7 +25,13 @@ jobs:
 
       - name: Run Python script
         run: |
-          python main.py
+          python experiment_top_left_test.py --lambd 0.1 --lambd_test 0.1 
+          python experiment_top_left_test.py --lambd 0.5 --lambd_test 0.5 
+          python experiment_top_left_test.py --lambd 0.9 --lambd_test 0.9 
+          python experiment_top_left_test.py --lambd 0.3 --lambd_test 0.6 
+          python experiment_top_left_test.py --lambd 0.3 --lambd_test 0.9 
+          python experiment_top_left_test.py --lambd 0.9 --lambd_test 0.3 
+
       
       - name: Commit and push file
         run: |-

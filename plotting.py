@@ -70,7 +70,7 @@ def plot_tl(file_name, ylim=None):
 
     save_dir = os.path.dirname(file_name)
     plt.savefig(
-        os.path.join(save_dir, "plot.pdf"),
+        os.path.join(save_dir, f"{file_name}.pdf"),
         bbox_extra_artists=(lgd,),
         bbox_inches="tight",
         format="pdf",

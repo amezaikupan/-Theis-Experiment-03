@@ -25,7 +25,7 @@ parser.add_argument("--lambd", default=0.5)
 parser.add_argument("--lambd_test", default=0.7)
 parser.add_argument("--use_hsic", default=0)
 parser.add_argument("--alpha_test", default=0.05)
-parser.add_argument("--n_repeat", default=1)
+parser.add_argument("--n_repeat", default=20)
 parser.add_argument("--max_l", default=100)
 parser.add_argument("--n_ul", default=100)
 args = parser.parse_args()
@@ -114,7 +114,7 @@ for rep in range(n_repeat):
                     feature_log.append({
                         "rep": rep,
                         "method": method.name,
-                        "n_train_tasks": n_ps,
+                        # "n_train_tasks": n_task,
                         "total_causal_features": p_s,
                         "causal_removed": n_ps,
                         "causal_remaining": total_causal_remaining,
@@ -135,7 +135,7 @@ save_all = {
 }
 
 file_name = ["tl_norm", str(n_repeat), str(eps), str(g), str(lambd)]
-file_name = "_".join(file_name)
+file_name = f"lambd_test_{lambd}_lambd_train_{lambd_test}_".join(file_name)
 
 with open(os.path.join(save_dir, file_name + ".pkl"), "wb") as f:
     pickle.dump(save_all, f)
