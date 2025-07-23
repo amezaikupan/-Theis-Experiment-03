@@ -10,7 +10,7 @@ import data as data
 import pickle
 
 import sys, os
-def plot_tl(file_name, ylim=None):
+def plot_tl(file_name, plot_name, ylim=None):
     import matplotlib.pyplot as plt
     import numpy as np
     import os
@@ -70,7 +70,7 @@ def plot_tl(file_name, ylim=None):
 
     save_dir = os.path.dirname(file_name)
     plt.savefig(
-        os.path.join(save_dir, f"{file_name}.pdf"),
+        os.path.join(save_dir, f"{plot_name}.pdf"),
         bbox_extra_artists=(lgd,),
         bbox_inches="tight",
         format="pdf",

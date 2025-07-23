@@ -134,8 +134,8 @@ save_all = {
     "n_train_tasks": n_train_tasks
 }
 
-file_name = ["tl_norm", str(n_repeat), str(eps), str(g), str(lambd)]
-file_name = f"lambd_test_{lambd}_lambd_train_{lambd_test}_".join(file_name)
+file_name = ["tl_norm", str(n_repeat), str(eps), str(g), str(lambd), str(lambd_test)]
+file_name = f"_".join(file_name)
 
 with open(os.path.join(save_dir, file_name + ".pkl"), "wb") as f:
     pickle.dump(save_all, f)
@@ -148,5 +148,8 @@ if not df_selected.empty:
     df_selected["selected_features_truncated"] = df_selected["selected_features_truncated"].apply(lambda x: ",".join(map(str, x)))
     df_selected.to_csv(os.path.join(save_dir, file_name + "_features.csv"), index=False)
 
+plot_name = f"lambd_test_{lambd}_lambd_train_{lambd_test}"
+
+
 # Plot
-plot_tl(os.path.join(save_dir, file_name + ".pkl"))
+plot_tl(os.path.join(save_dir, file_name + ".pkl"), plot_name=plot_name)
