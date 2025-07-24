@@ -13,12 +13,12 @@ np.random.seed(1234)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--save_dir", default=f"Experiment_01_top_left")
-parser.add_argument("--n_task", default=10)
+parser.add_argument("--n_task", default=7)
 parser.add_argument("--merge_dica", default=0)
-parser.add_argument("--n", default=4000)
+parser.add_argument("--n", default=2000)
 parser.add_argument("--p", default=12)
 parser.add_argument("--p_s", default=6)
-parser.add_argument("--p_conf", default=1)
+parser.add_argument("--p_conf", default=3)
 parser.add_argument("--eps", default=2)
 parser.add_argument("--g", default=1)
 parser.add_argument("--lambd", default=0.5)
@@ -63,6 +63,7 @@ sgreedy = SGreedy().set_params({'alpha': 0.001, 'use_hsic': False})
 shat = SHat().set_params({'alpha': 0.001, 'use_hsic': False})
 causal = Causal().set_params()
 methods = [pooling, shat, sgreedy, causal]
+# methods = [shat]
 methods_name = [method.name for method in methods]
 
 results = {m: np.zeros((n_repeat, len(n_train_tasks))) for m in methods_name}
@@ -121,7 +122,10 @@ for rep in range(n_repeat):
                         "causal_selected": causal_selected,
                         "selection_accuracy": causal_selected / total_causal_remaining if total_causal_remaining > 0 else 0,
                         "selected_features_original": list(selected_original),
-                        "selected_features_truncated": list(selected)
+                        "selected_features_truncated": list(selected), 
+                        "accepted_sets": method.accepted_sets, 
+                        "accepted_pvals": method.accepted_pvals, 
+                        # "max_pval": method.max_pval
                     })
 
     del x_train, y_train, x_test, y_test

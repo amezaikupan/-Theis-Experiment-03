@@ -325,7 +325,6 @@ def full_search(x,y,n_samples_per_task,
         idx_max = sort_pvals[-1]
 
         if np.sum(all_pvals == all_pvals[idx_max]) > 1:
-
             max_pval = all_pvals[idx_max]
             tied_indices = np.where(all_pvals == max_pval)[0]
             all_losses = np.array(all_losses).flatten()
@@ -338,32 +337,37 @@ def full_search(x,y,n_samples_per_task,
         accepted_sets.append(best_subset)
 
     # === Write full log to file ===
-    import os
+    # import os
 
-    os.makedirs('search_log', exist_ok=True)
+    # os.makedirs('search_log', exist_ok=True)
 
-    from datetime import datetime
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"search_log/shat_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}_{timestamp}.txt"
+    # from datetime import datetime
+    # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # filename = f"search_log/shat_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}_{timestamp}.txt"
 
-    with open(filename, "w") as f:
-        f.write("All Tested Subsets:\n")
-        for s, p, l in zip(all_sets, all_pvals, all_losses):
-            f.write(f"Subset: {s}, P-Value: {p:.23f}, Loss: {l:.23f}\n")
+    # with open(filename, "w") as f:
+    #     f.write("All Tested Subsets:\n")
+    #     for s, p, l in zip(all_sets, all_pvals, all_losses):
+    #         f.write(f"Subset: {s}, P-Value: {p:.23f}, Loss: {l:.23f}\n")
 
-        f.write("\nAccepted Subsets:\n")
-        for s, l in zip(accepted_sets, accepted_loss):
-            f.write(f"Subset: {s}, Loss: {l:.23f}\n")
+    #     f.write("\nAccepted Subsets:\n")
+    #     for s, l in zip(accepted_sets, accepted_loss):
+    #         f.write(f"Subset: {s}, Loss: {l:.23f}\n")
 
-        f.write(f"\nBest Subset: {best_subset}, Best Loss: {best_loss:.23f}\n")
-        f.write(f"Accepted pvals: {accepted_pvals}\n")
-        f.write(f"Accepted sets: {accepted_sets}\n")
+    #     f.write(f"\nBest Subset: {best_subset}, Best Loss: {best_loss:.23f}\n")
+    #     f.write(f"Accepted pvals: {accepted_pvals}\n")
+    #     f.write(f"Accepted sets: {accepted_sets}\n")
 
     print("SHAT BEST SUBSET", best_subset)
+
+    sort_pvals = np.argsort(all_pvals)
+    idx_max = sort_pvals[-1]
+    max_pval = all_pvals[idx_max]
+
     if return_n_best:
-        return [np.array(s) for s in accepted_sets[-return_n_best:]]
+        return ([np.array(s) for s in accepted_sets[-return_n_best:]], accepted_sets, accepted_pvals, max_pval)
     else:
-        return np.array(best_subset)
+        return (np.array(best_subset), accepted_sets, accepted_pvals, max_pval)
     
 ##### ********** GREEDY_SEARCH *************
 
@@ -508,41 +512,44 @@ def greedy_search(X, y, n_samples_per_task, alpha,
         best_loss = accepted_loss[-1] if accepted_loss else 0
 
     # === Write full log to file ===
-    import os
+    # import os
 
-    os.makedirs('search_log', exist_ok=True)
-    from datetime import datetime
+    # os.makedirs('search_log', exist_ok=True)
+    # from datetime import datetime
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"search_log/greedy_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}_{timestamp}.txt"
+    # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # filename = f"search_log/greedy_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}_{timestamp}.txt"
 
-    with open(filename, "w") as f:
-        f.write("Greedy Search Log\n")
-        f.write("=================\n\n")
+    # with open(filename, "w") as f:
+    #     f.write("Greedy Search Log\n")
+    #     f.write("=================\n\n")
         
-        f.write("All Tested Subsets:\n")
-        for s, p, l in zip(all_sets, all_pvals, all_losses):
+    #     f.write("All Tested Subsets:\n")
+    #     for s, p, l in zip(all_sets, all_pvals, all_losses):
         
-            p_val = float(np.asarray(p).item()) if hasattr(p, 'item') else float(p)
-            l_val = float(np.asarray(l).item()) if hasattr(l, 'item') else float(l)
-            f.write(f"Subset: {s}, P-Value: {p_val:.23f}, Loss: {l_val:.23f}\n")
+    #         p_val = float(np.asarray(p).item()) if hasattr(p, 'item') else float(p)
+    #         l_val = float(np.asarray(l).item()) if hasattr(l, 'item') else float(l)
+    #         f.write(f"Subset: {s}, P-Value: {p_val:.23f}, Loss: {l_val:.23f}\n")
 
-        f.write("\nAccepted Subsets (during search):\n")
-        for s, l, p in zip(accepted_sets, accepted_loss, accepted_pvals):
-            # Convert to scalar values to avoid numpy array formatting issues
-            p_val = float(np.asarray(p).item()) if hasattr(p, 'item') else float(p)
-            l_val = float(np.asarray(l).item()) if hasattr(l, 'item') else float(l)
-            f.write(f"Subset: {s}, Loss: {l_val:.23f}, P-Value: {p_val:.23f}\n")
+    #     f.write("\nAccepted Subsets (during search):\n")
+    #     for s, l, p in zip(accepted_sets, accepted_loss, accepted_pvals):
+    #         # Convert to scalar values to avoid numpy array formatting issues
+    #         p_val = float(np.asarray(p).item()) if hasattr(p, 'item') else float(p)
+    #         l_val = float(np.asarray(l).item()) if hasattr(l, 'item') else float(l)
+    #         f.write(f"Subset: {s}, Loss: {l_val:.23f}, P-Value: {p_val:.23f}\n")
 
-        f.write(f"\nFinal Best Subset: {tuple(accepted_subset)}, Best Loss: {float(best_loss):.23f}\n")
-        f.write(f"Total iterations: {ind}\n")
-        f.write(f"Total subsets tested: {len(all_sets)}\n")
-        f.write(f"Number of accepted sets: {len(accepted_sets)}\n")
-        f.write(f"Alpha threshold: {alpha}\n")
-        f.write(f"Classification task: {is_classification_task}\n")
+    #     f.write(f"\nFinal Best Subset: {tuple(accepted_subset)}, Best Loss: {float(best_loss):.23f}\n")
+    #     f.write(f"Total iterations: {ind}\n")
+    #     f.write(f"Total subsets tested: {len(all_sets)}\n")
+    #     f.write(f"Number of accepted sets: {len(accepted_sets)}\n")
+    #     f.write(f"Alpha threshold: {alpha}\n")
+    #     f.write(f"Classification task: {is_classification_task}\n")
 
     print("SGREEDY ACCEPTED SET", accepted_subset)
-    return np.array(accepted_subset)
+    sort_pvals = np.argsort(all_pvals)
+    idx_max = sort_pvals[-1]
+    max_pval = sort_pvals[idx_max]
+    return (np.array(accepted_subset), accepted_sets, accepted_pvals, max_pval)
 
 
 # ***************** POLYMONIAL *****************

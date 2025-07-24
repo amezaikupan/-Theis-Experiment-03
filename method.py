@@ -136,7 +136,7 @@ class SHat(Method):
             self.lasso_mask = None
             if (len(X_train[1]) < 13): 
                 print('---No Lasso ---')
-                s_hat = subset_search.full_search(
+                s_hat, acc_sets, acc_pvals, max_pval = subset_search.full_search(
                     X_train, y_train, 
                     alpha=self.params['delta'],
                     valid_split=self.params['valid_split'],
@@ -149,7 +149,7 @@ class SHat(Method):
                 self.lasso_mask = lasso_mask
                 X_train = X_train[:, lasso_mask]
                 
-                s_hat = subset_search.full_search(
+                s_hat, acc_sets, acc_pvals,max_pval = subset_search.full_search(
                     X_train, y_train, 
                     alpha=self.params['delta'],
                     valid_split=self.params['valid_split'],
@@ -184,6 +184,11 @@ class SHat(Method):
                     use_hsic=self.params['use_hsic'],
                     # is_classification_task = self.params['is_classification_task']
                 )
+
+
+        self.accepted_sets = acc_sets
+        self.accepted_pvals = acc_pvals
+        self.max_pval = max_pval
 
         if(len(s_hat) != 0):
             if(self.params['is_classification_task']):
@@ -253,20 +258,24 @@ class SGreedy(Method):
     def fit(self, X_train, y_train, params):
 
         if self.params['mycode']:
-            s_greedy = subset_search.greedy_search(
+            s_greedy, acc_sets, acc_pvals, max_pval = subset_search.greedy_search(
                 X_train, y_train, 
                 alpha=self.params['delta'],
                 valid_split=self.params['valid_split'],
                 n_samples_per_task=params['n_samples_per_task']
             )
         else:
-            s_greedy = subset_search.greedy_subset(
+            s_greedy, acc_sets, acc_pvals, max_pval = subset_search.greedy_subset(
                 X_train, y_train, 
                 delta=self.params['delta'],
                 valid_split=self.params['valid_split'],
                 n_ex=params['n_samples_per_task']
                 # is_classification_task=self.params['is_classification_task']
             )
+
+        self.accepted_sets = acc_sets
+        self.accepted_pvals = acc_pvals
+        self.max_pval = max_pval
 
         if(self.params['is_classification_task']):
             model = linear_model.LogisticRegression()
