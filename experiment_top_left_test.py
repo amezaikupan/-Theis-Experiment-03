@@ -62,7 +62,7 @@ mean = Mean()
 sgreedy = SGreedy().set_params({'alpha': 0.001, 'use_hsic': False})
 shat = SHat().set_params({'alpha': 0.001, 'use_hsic': False})
 causal = Causal().set_params()
-methods = [pooling, shat, sgreedy, mean, causal]
+methods = [pooling, shat, sgreedy, causal]
 methods_name = [method.name for method in methods]
 
 results = {m: np.zeros((n_repeat, len(n_train_tasks))) for m in methods_name}

@@ -341,8 +341,12 @@ def full_search(x,y,n_samples_per_task,
     import os
 
     os.makedirs('search_log', exist_ok=True)
-    
-    with open(f"search_log/shat_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}.txt", "w") as f:
+
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"search_log/shat_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}_{timestamp}.txt"
+
+    with open(filename, "w") as f:
         f.write("All Tested Subsets:\n")
         for s, p, l in zip(all_sets, all_pvals, all_losses):
             f.write(f"Subset: {s}, P-Value: {p:.23f}, Loss: {l:.23f}\n")
@@ -507,7 +511,12 @@ def greedy_search(X, y, n_samples_per_task, alpha,
     import os
 
     os.makedirs('search_log', exist_ok=True)
-    with open(f"search_log/greedy_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}.txt", "w") as f:
+    from datetime import datetime
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"search_log/greedy_n_features_{train_x.shape[1]}_acc_sets_{len(accepted_sets)}_{timestamp}.txt"
+
+    with open(filename, "w") as f:
         f.write("Greedy Search Log\n")
         f.write("=================\n\n")
         
